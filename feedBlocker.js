@@ -55,6 +55,8 @@
     /\b(?:i am|i'm|i'll|i will|i have|i've)\b.{0,100}\b(?:started|starting)\s+(?:a\s+)?new\s+(?:position|role|job|chapter)\s+(?:at|with)\b/i,
     // "I've started a new role as Software Engineer at Shopify."
     /\b(?:started|starting)\s+(?:a\s+)?new\s+(?:position|role|job)\s+as\s+.{2,120}\s+(?:at|with)\b/i,
+    // "I'm working at Scribenote as a Data Science Co-op."
+    /\b(?:i am|i'm)\s+(?:now\s+)?working\s+(?:at|with)\s+.{2,140}\s+as\s+(?:an?\s+)?/i,
     // "I accepted an offer at..."
     /\b(?:i have|i've|i am|i'm)\b.{0,100}\b(?:accepted|accepting)\s+(?:an?\s+)?(?:offer|position|role)\b.{0,100}\b(?:at|with)\b/i,
     // "I've accepted my offer to join Deloitte as an Analyst."
