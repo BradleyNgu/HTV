@@ -583,22 +583,6 @@ section {
   background: rgba(10, 102, 194, 0.15);
 }
 
-/* ---- Shared notes / status ------------------------------------------------ */
-
-.status-neutral {
-  background: #eeeeee;
-  color: var(--muted);
-}
-
-.note {
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--li-blue-soft);
-  color: var(--li-blue-hover);
-  font-size: 12px;
-}
-
 /* ---- Counted applications ------------------------------------------------- */
 
 .applied-label {
@@ -673,118 +657,10 @@ section {
   color: var(--li-blue-hover);
 }
 
-/* ---- Daily check-in ------------------------------------------------------- */
-
-.checkin-help {
-  margin: 0 0 10px;
-}
-
-.scale {
-  margin-bottom: 10px;
-}
-
-.scale-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.scale-buttons {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-}
-
-.scale-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 2px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.scale-btn strong {
-  font-size: 14px;
-}
-
-.scale-btn span {
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.scale-btn:hover {
-  border-color: var(--li-blue);
-}
-
-.scale-btn:focus-visible,
 .btn:focus-visible,
 .icon-btn:focus-visible {
   outline: 2px solid var(--li-blue);
   outline-offset: 2px;
-}
-
-.scale-btn.selected {
-  background: var(--li-blue-soft);
-  border-color: var(--li-blue);
-}
-
-.scale-btn.selected span {
-  color: var(--li-blue-hover);
-}
-
-#btn-save-checkin {
-  margin-bottom: 10px;
-}
-
-.trend-label {
-  margin: 6px 0 4px;
-}
-
-.trend {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 64px;
-}
-
-.trend-col {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px;
-}
-
-.trend-bar {
-  width: 100%;
-  max-width: 28px;
-  min-height: 3px;
-  border-radius: 4px 4px 0 0;
-  background: var(--li-blue);
-}
-
-.trend-bar.low {
-  background: var(--danger);
-}
-
-.trend-bar.empty {
-  background: #e3e3e3;
-}
-
-.trend-day {
-  font-size: 10px;
-  color: var(--muted);
 }
 
 /* ---- Skills gap + plan ---------------------------------------------------- */

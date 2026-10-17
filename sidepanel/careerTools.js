@@ -5,7 +5,6 @@
 
 import { analyzeSkillsGap } from '../services/skillsGap.js';
 import { generatePracticePrompts, CALM_CHECKLIST } from '../services/interviewPrep.js';
-import { getCurrentEnergy } from './wellbeing.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -59,7 +58,7 @@ export function initCareerTools({ getContext }) {
   });
 
   // ---- Skills gap ----------------------------------------------------------
-  function renderGap(result, energy) {
+  function renderGap(result) {
     gap.empty.classList.add('hidden');
     gap.content.classList.remove('hidden');
 
@@ -89,10 +88,7 @@ export function initCareerTools({ getContext }) {
       gap.missing.appendChild(li);
     });
 
-    const light = energy != null && energy < 2.5;
-    gap.planLabel.textContent = `Paced plan · ${result.hoursPerWeek}h per week${
-      light ? ' (kept light for a low-energy day)' : ''
-    }`;
+    gap.planLabel.textContent = `Paced plan · ${result.hoursPerWeek}h per week`;
     gap.plan.innerHTML = '';
     result.weeklyPlan.forEach((w) => {
       const card = el('article', 'plan-card');
@@ -130,13 +126,11 @@ export function initCareerTools({ getContext }) {
     gap.btn.disabled = true;
     gap.btn.textContent = 'Analyzing…';
     try {
-      const energy = await getCurrentEnergy();
       const result = await analyzeSkillsGap(ctx.parsed, skills, {
         apiKey: ctx.settings.apiKey || '',
-        energy,
         skillProfile: ctx.settings.skillProfile || [],
       });
-      renderGap(result, energy);
+      renderGap(result);
     } catch (err) {
       setError(gap.error, err?.message || 'Skills analysis failed.');
     } finally {
