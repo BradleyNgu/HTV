@@ -5,6 +5,7 @@
 
 import { analyzeSkillsGap } from '../services/skillsGap.js';
 import { generatePracticePrompts, CALM_CHECKLIST } from '../services/interviewPrep.js';
+import { analyzeInterviewProcess } from '../services/interviewProcess.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,7 +22,7 @@ function setError(node, message) {
 }
 
 /**
- * @param {{ getContext: () => { parsed: object|null, matches: Array, settings: object } }} deps
+ * @param {{ getContext: () => { job: object|null, parsed: object|null, matches: Array, settings: object } }} deps
  */
 export function initCareerTools({ getContext }) {
   const gap = {
@@ -42,6 +43,18 @@ export function initCareerTools({ getContext }) {
     empty: $('prep-empty'),
     content: $('prep-content'),
     error: $('prep-error'),
+  };
+  const process = {
+    btn: $('btn-process'),
+    empty: $('process-empty'),
+    content: $('process-content'),
+    likelihood: $('process-likelihood'),
+    fill: $('process-likelihood-fill'),
+    rationale: $('process-rationale'),
+    notes: $('process-notes'),
+    problems: $('process-problems'),
+    source: $('process-source'),
+    error: $('process-error'),
   };
 
   // Static calm-down checklist is available any time.
@@ -139,6 +152,65 @@ export function initCareerTools({ getContext }) {
     }
   }
 
+  // ---- Coding interview forecast -------------------------------------------
+  function renderProcess(result) {
+    process.empty.classList.add('hidden');
+    process.content.classList.remove('hidden');
+
+    const likelihood = result.leetcodeLikelihoodPercent;
+    process.likelihood.textContent = `${likelihood}% likelihood`;
+    process.fill.style.width = `${likelihood}%`;
+    process.fill.dataset.level =
+      likelihood >= 70 ? 'high' : likelihood >= 40 ? 'medium' : 'low';
+    process.rationale.textContent = result.rationale;
+    process.notes.textContent = result.processNotes;
+    process.problems.innerHTML = '';
+
+    (result.problems || []).forEach((problem) => {
+      const item = el('li', 'process-problem');
+      const link = el('a', 'process-problem-link', problem.title);
+      link.href = problem.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      item.append(link, el('span', 'muted', problem.topic));
+      process.problems.appendChild(item);
+    });
+
+    const labels = {
+      gemini: 'Estimated by Gemini from this role and company profile.',
+      heuristic: 'Offline estimate. Add a Gemini key for a more tailored forecast.',
+      'heuristic-fallback': 'Gemini unavailable. Showing an offline estimate.',
+    };
+    process.source.textContent = labels[result._source] || '';
+    setError(
+      process.error,
+      result._source === 'heuristic-fallback' ? result._error || 'Gemini unavailable.' : ''
+    );
+  }
+
+  async function runProcess() {
+    const ctx = getContext();
+    setError(process.error, '');
+    if (!ctx.job || !ctx.parsed) {
+      setError(process.error, 'Scrape and parse a job first.');
+      return;
+    }
+
+    process.btn.disabled = true;
+    process.btn.textContent = 'Estimating…';
+    try {
+      const result = await analyzeInterviewProcess(ctx.job, ctx.parsed, {
+        apiKey: ctx.settings.apiKey || '',
+      });
+      renderProcess(result);
+    } catch (err) {
+      setError(process.error, err?.message || 'Could not estimate the interview process.');
+    } finally {
+      process.btn.disabled = false;
+      process.btn.textContent = 'Estimate';
+    }
+  }
+
   // ---- Interview prep ------------------------------------------------------
   function renderPrep(result, stories) {
     prep.empty.classList.add('hidden');
@@ -204,6 +276,7 @@ export function initCareerTools({ getContext }) {
   }
 
   gap.btn.addEventListener('click', runGap);
+  process.btn.addEventListener('click', runProcess);
   prep.btn.addEventListener('click', runPrep);
 
   return {
@@ -211,6 +284,7 @@ export function initCareerTools({ getContext }) {
     refresh() {
       const ctx = getContext();
       gap.btn.disabled = !ctx.parsed;
+      process.btn.disabled = !(ctx.job && ctx.parsed);
       prep.btn.disabled = !(ctx.parsed && ctx.matches.length);
     },
     /** Clear stale results when a new job is parsed. */
@@ -220,7 +294,10 @@ export function initCareerTools({ getContext }) {
       prep.content.classList.add('hidden');
       prep.content.innerHTML = '';
       prep.empty.classList.remove('hidden');
+      process.content.classList.add('hidden');
+      process.empty.classList.remove('hidden');
       setError(gap.error, '');
+      setError(process.error, '');
       setError(prep.error, '');
     },
   };

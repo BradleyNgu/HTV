@@ -121,6 +121,35 @@
       <p id="star-method" class="muted hidden"></p>
     </section>
 
+    <section class="process" aria-labelledby="process-heading">
+      <div class="pacing-row">
+        <h2 id="process-heading" class="section-title">Coding interview forecast</h2>
+        <button type="button" id="btn-process" class="btn btn-ghost" disabled>Estimate</button>
+      </div>
+      <div id="process-empty" class="empty-state">
+        Parse a job to estimate its LeetCode likelihood and get role-specific practice questions.
+      </div>
+      <div id="process-content" class="hidden">
+        <div class="process-score-row">
+          <div class="process-meter" aria-hidden="true">
+            <div id="process-likelihood-fill" class="process-likelihood-fill"></div>
+          </div>
+          <strong id="process-likelihood" class="process-likelihood"></strong>
+        </div>
+        <p id="process-rationale" class="process-copy"></p>
+        <p id="process-notes" class="process-copy muted"></p>
+        <div class="field">
+          <span class="field-label">Recommended LeetCode practice</span>
+          <ul id="process-problems" class="process-problems"></ul>
+        </div>
+        <p class="process-disclaimer">
+          These are Gemini-selected practice recommendations, not a verified or current company question bank.
+        </p>
+        <p id="process-source" class="muted"></p>
+      </div>
+      <p id="process-error" class="error-inline hidden" role="alert"></p>
+    </section>
+
     <section class="prep" aria-labelledby="prep-heading">
       <div class="pacing-row">
         <h2 id="prep-heading" class="section-title">Interview prep</h2>

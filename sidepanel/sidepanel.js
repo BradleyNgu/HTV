@@ -79,7 +79,7 @@ let shutdownOpening = false;
 let shutdownAutoShownDate = '';
 
 const careerTools = initCareerTools({
-  getContext: () => ({ parsed: currentParsed, matches: currentMatches, settings }),
+  getContext: () => ({ job: currentJob, parsed: currentParsed, matches: currentMatches, settings }),
 });
 
 function showError(el, message) {
