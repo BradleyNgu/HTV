@@ -10,16 +10,40 @@
 
 import { embedTexts } from './gemini.js';
 
+const MATCH_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'as',
+  'at',
+  'by',
+  'for',
+  'from',
+  'in',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'with',
+]);
+
 function tokenize(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/[^a-z0-9+#.\s-]/g, ' ')
     .split(/\s+/)
-    .filter((t) => t.length > 1);
+    .filter((t) => t.length > 1 && !MATCH_STOP_WORDS.has(t));
 }
 
 function unique(arr) {
   return [...new Set(arr)];
+}
+
+function isNonStoryConstraint(signal) {
+  return /\b(?:legal authorization|authorized to work|work authorization|visa sponsorship|immigration status|citizenship requirement|security clearance|background check|drug test|equal opportunity)\b/i.test(
+    signal
+  );
 }
 
 function scoreProject(project, signals) {
@@ -64,9 +88,8 @@ function scoreProject(project, signals) {
 export function matchStarStories(parsedJob, projectBank = [], limit = 2) {
   const signals = unique([
     ...(parsedJob?.requiredTechStack || []),
-    ...(parsedJob?.domainConstraints || []),
-    ...(parsedJob?.keyResponsibilities || []).flatMap((r) => tokenize(r).slice(0, 4)),
-  ]);
+    ...(parsedJob?.domainConstraints || []).filter((signal) => !isNonStoryConstraint(signal)),
+  ]).filter((signal) => tokenize(signal).length);
 
   if (!projectBank.length) return [];
 

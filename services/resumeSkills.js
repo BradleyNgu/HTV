@@ -6,6 +6,7 @@
 
 import * as pdfjs from '../lib/pdfjs/pdf.min.mjs';
 import { callGeminiJson } from './gemini.js';
+import { extractResumeStories } from './resumeStories.js';
 
 pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdfjs/pdf.worker.min.mjs');
 
@@ -254,6 +255,7 @@ ${text.slice(0, 15000)}`,
  * @param {{ apiKey?: string }} opts
  * @returns {Promise<{
  *   profile: { name: string, category: string, level: string, years: number|null, evidence: string }[],
+ *   stories: Array,
  *   source: 'gemini' | 'catalog' | 'catalog-fallback',
  *   error?: string,
  * }>}
@@ -266,11 +268,25 @@ export async function extractSkillsFromPdf(file, { apiKey = '' } = {}) {
 
   const key = apiKey.trim();
   if (key) {
+    const storiesPromise = extractResumeStories(text, { apiKey: key });
     try {
-      return { profile: await profileWithGemini(text, key), source: 'gemini' };
+      const [profile, extractedStories] = await Promise.all([profileWithGemini(text, key), storiesPromise]);
+      return {
+        profile,
+        stories: extractedStories.stories,
+        source: 'gemini',
+        error: extractedStories.error,
+      };
     } catch (err) {
-      return { profile: catalogProfile(text), source: 'catalog-fallback', error: err?.message };
+      const extractedStories = await storiesPromise.catch(() => extractResumeStories(text));
+      return {
+        profile: catalogProfile(text),
+        stories: extractedStories.stories,
+        source: 'catalog-fallback',
+        error: err?.message,
+      };
     }
   }
-  return { profile: catalogProfile(text), source: 'catalog' };
+  const extractedStories = await extractResumeStories(text);
+  return { profile: catalogProfile(text), stories: extractedStories.stories, source: 'catalog' };
 }

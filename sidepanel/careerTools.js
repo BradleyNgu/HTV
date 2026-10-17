@@ -247,7 +247,7 @@ export function initCareerTools({ getContext }) {
     const ctx = getContext();
     setError(prep.error, '');
     if (!ctx.parsed || !ctx.matches.length) {
-      setError(prep.error, 'Parse a job and get STAR matches first.');
+      setError(prep.error, 'Parse a job first. Upload a resume in settings if prompts stay disabled.');
       return;
     }
     prep.btn.disabled = true;
@@ -276,10 +276,12 @@ export function initCareerTools({ getContext }) {
       const usable = {
         gap: Boolean(ctx.parsed),
         process: Boolean(ctx.job && ctx.parsed),
-        prep: Boolean(ctx.parsed && ctx.matches.length),
+        prep: Boolean(ctx.parsed),
       };
+      gap.btn.disabled = !usable.gap;
+      process.btn.disabled = !usable.process;
+      prep.btn.disabled = !(usable.prep && ctx.matches.length);
       for (const [key, panel] of Object.entries({ gap, process, prep })) {
-        panel.btn.disabled = !usable[key];
         panel.section.classList.toggle('hidden', !usable[key]);
       }
     },

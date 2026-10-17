@@ -3,6 +3,8 @@
  * application sessions, and workday shutdown state.
  */
 
+import { cleanResumeStories } from './services/resumeStories.js';
+
 const DEFAULTS = {
   dailyAppCap: 4,
   appsSubmittedToday: 0,
@@ -11,6 +13,7 @@ const DEFAULTS = {
   userSkills: [],
   skillProfile: [],
   resumeName: '',
+  resumeStories: [],
   applicationLog: [],
   currentSessionJobs: [],
   parsedSkillsByUrl: {},
@@ -90,6 +93,7 @@ async function ensureDailyReset() {
   if (data.apiKey == null) updates.apiKey = DEFAULTS.apiKey;
   if (data.userSkills == null) updates.userSkills = DEFAULTS.userSkills;
   if (data.skillProfile == null) updates.skillProfile = DEFAULTS.skillProfile;
+  if (data.resumeStories == null) updates.resumeStories = DEFAULTS.resumeStories;
   // Left over from the removed rejection-recovery feature; it held analyzed email outcomes.
   if (data.rejectionHistory != null) {
     await chrome.storage.local.remove('rejectionHistory');
@@ -368,6 +372,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: true });
           break;
         }
+        case 'GET_RESUME_STORIES': {
+          const state = await ensureDailyReset();
+          const resumeStories = cleanResumeStories(state.resumeStories || []);
+          if (JSON.stringify(resumeStories) !== JSON.stringify(state.resumeStories || [])) {
+            await chrome.storage.local.set({ resumeStories });
+          }
+          sendResponse({ ok: true, resumeStories });
+          break;
+        }
         case 'GET_SETTINGS': {
           const state = await ensureDailyReset();
           sendResponse({
@@ -393,6 +406,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             payload.userSkills = cleanSkills(message.userSkills);
           }
           if (message.resumeName != null) payload.resumeName = String(message.resumeName).slice(0, 120);
+          if (message.resumeStories != null) payload.resumeStories = cleanResumeStories(message.resumeStories);
           if (message.dailyAppCap != null) {
             payload.dailyAppCap = Math.max(1, Number(message.dailyAppCap) || DEFAULTS.dailyAppCap);
             const capWasRaised = payload.dailyAppCap > state.dailyAppCap;

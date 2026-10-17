@@ -15,7 +15,6 @@ function localDateKey(d = new Date()) {
 }
 
 const els = {
-  starMethod: document.getElementById('star-method'),
   resumeDrop: document.getElementById('resume-drop'),
   resumeDropText: document.getElementById('resume-drop-text'),
   resumeFile: document.getElementById('resume-file'),
@@ -57,7 +56,6 @@ const els = {
   jobUrl: document.getElementById('job-url'),
   jobError: document.getElementById('job-error'),
   sectionParsed: document.getElementById('section-parsed'),
-  sectionStar: document.getElementById('section-star'),
   parsedContent: document.getElementById('parsed-content'),
   techBadges: document.getElementById('tech-badges'),
   domainBadges: document.getElementById('domain-badges'),
@@ -65,8 +63,6 @@ const els = {
   respList: document.getElementById('resp-list'),
   parseSource: document.getElementById('parse-source'),
   parseError: document.getElementById('parse-error'),
-  starEmpty: document.getElementById('star-empty'),
-  starContent: document.getElementById('star-content'),
   btnSettings: document.getElementById('btn-settings'),
   settingsDialog: document.getElementById('settings-dialog'),
   settingsForm: document.getElementById('settings-form'),
@@ -192,7 +188,6 @@ async function requestScrape(tabId) {
 function updateSectionVisibility() {
   const hasParseError = !els.parseError.classList.contains('hidden');
   els.sectionParsed.classList.toggle('hidden', !currentParsed && !hasParseError);
-  els.sectionStar.classList.toggle('hidden', !currentParsed);
   careerTools.refresh();
 }
 
@@ -203,8 +198,6 @@ function clearAnalysis() {
   analyzedJobUrl = '';
   careerTools.reset();
   els.parsedContent.classList.add('hidden');
-  els.starContent.innerHTML = '';
-  els.starMethod.classList.add('hidden');
   showError(els.parseError, '');
   updateSectionVisibility();
 }
@@ -293,52 +286,6 @@ function renderParsed(parsed) {
   }
 }
 
-function renderStar(matches, method = 'keyword', error = '') {
-  els.starContent.innerHTML = '';
-  if (!matches?.length) {
-    els.starEmpty.classList.remove('hidden');
-    els.starMethod.classList.add('hidden');
-    return;
-  }
-  els.starEmpty.classList.add('hidden');
-
-  const methodLabel =
-    method === 'semantic'
-      ? 'Ranked by meaning (Gemini embeddings), not just keywords.'
-      : `Ranked by keyword overlap${error ? ` (semantic matching unavailable: ${error})` : '. Add a Gemini key for semantic matching.'}`;
-  els.starMethod.textContent = methodLabel;
-  els.starMethod.classList.remove('hidden');
-
-  matches.forEach((m) => {
-    const card = document.createElement('article');
-    card.className = 'star-card';
-    const matchHtml = (m.matchedSignals || [])
-      .slice(0, 6)
-      .map((s) => `<span class="badge">${escapeHtml(s)}</span>`)
-      .join('');
-
-    card.innerHTML = `
-      <h3>${escapeHtml(m.title)}</h3>
-      <div class="star-match">${matchHtml || '<span class="muted">General fit</span>'}</div>
-      <div class="star-grid">
-        <div class="star-block"><span>Situation</span><p>${escapeHtml(m.situation)}</p></div>
-        <div class="star-block"><span>Task</span><p>${escapeHtml(m.task)}</p></div>
-        <div class="star-block"><span>Action</span><p>${escapeHtml(m.action)}</p></div>
-        <div class="star-block"><span>Result</span><p>${escapeHtml(m.result)}</p></div>
-      </div>
-    `;
-    els.starContent.appendChild(card);
-  });
-}
-
-function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 async function runParseAndMatch() {
   if (!currentJob?.description) {
     showError(els.jobError, 'Scrape a job with a description before parsing.');
@@ -359,14 +306,18 @@ async function runParseAndMatch() {
       parsedSkills: parsed.requiredTechStack || [],
     });
 
-    const bankRes = await chrome.runtime.sendMessage({ type: 'GET_PROJECT_BANK' });
-    const { matches, method, error } = await matchStarStoriesSemantic(
-      parsed,
-      bankRes?.projectBank || [],
-      { apiKey: settings.apiKey, limit: 2, job: currentJob }
-    );
-    currentMatches = matches;
-    renderStar(matches, method, error);
+    const storiesRes = await chrome.runtime.sendMessage({ type: 'GET_RESUME_STORIES' });
+    const resumeStories = storiesRes?.resumeStories || [];
+    if (!resumeStories.length) {
+      currentMatches = [];
+    } else {
+      const { matches } = await matchStarStoriesSemantic(parsed, resumeStories, {
+        apiKey: settings.apiKey,
+        limit: 2,
+        job: currentJob,
+      });
+      currentMatches = matches;
+    }
   } catch (err) {
     showError(els.parseError, err?.message || 'Parse failed.');
   } finally {
@@ -915,14 +866,19 @@ async function handleResumeFile(file) {
   draftProfile = [];
   setResumeReading(true, file.name);
   try {
-    const { profile, source, error } = await extractSkillsFromPdf(file, {
+    const { profile, stories = [], source, error } = await extractSkillsFromPdf(file, {
       apiKey: els.settingKey.value,
     });
     if (!profile.length) {
       throw new Error('No recognizable skills found in that PDF.');
     }
 
-    await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', skillProfile: profile, resumeName: file.name });
+    await chrome.runtime.sendMessage({
+      type: 'SAVE_SETTINGS',
+      skillProfile: profile,
+      resumeStories: stories,
+      resumeName: file.name,
+    });
     const saved = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
     settings = {
       ...settings,
@@ -939,7 +895,10 @@ async function handleResumeFile(file) {
       catalog: 'Found by offline keyword match. Add a Gemini key for proficiency levels and richer descriptions',
       'catalog-fallback': `Found by offline keyword match (Gemini failed: ${error})`,
     }[source];
-    setResumeStatus(`Replaced your previous skills. ${via}.`);
+    const storyNote = stories.length
+      ? ` ${stories.length} resume ${stories.length === 1 ? 'story' : 'stories'} ready for interview prep.`
+      : ' No experience bullets were found for interview prep.';
+    setResumeStatus(`Replaced your previous skills. ${via}.${storyNote}`);
   } catch (err) {
     draftProfile = previous;
     setResumeReading(false);

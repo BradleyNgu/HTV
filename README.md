@@ -1,6 +1,6 @@
 # Checkpoint
 
-Chrome Manifest V3 side-panel extension for LinkedIn Jobs. Enforces daily application pacing, parses job descriptions into structured JSON signals, and matches STAR project stories without a chatbot UI.
+Chrome Manifest V3 side-panel extension for LinkedIn Jobs. Enforces daily application pacing, parses job descriptions into structured JSON signals, and prepares interview prompts from your resume without a chatbot UI.
 
 ## Load in Chrome
 
@@ -20,9 +20,8 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | **Feed focus filter** | Covers LinkedIn home-feed posts announcing that someone is joining a company. Matching posts show a “This is blocked” overlay with an optional **Show anyway** escape hatch |
 | **Gmail rejection filter** | Locally detects likely rejection wording in visible Gmail inbox rows and replaces it with an **Application update hidden** cover. **Show anyway** reveals the original row; no email is opened, moved, deleted, or sent to an API |
 | **AI parse** | Returns typed JSON (`tech`, `domain`, `seniority`, `responsibilities`) as badges, not chat |
-| **STAR match** | Ranks local project bank (Gemini embeddings when a key is set, keyword overlap otherwise) and surfaces top 2 Situation / Task / Action / Result cards |
 | **Skills fit & paced plan** | Compares the job's required tech to the skills pulled from the resume PDF you drop into ⚙ settings (text is extracted on-device with pdf.js; with a Gemini key, Gemini describes each skill's category, proficiency, years, and how you used it; otherwise a keyword catalog groups skills and quotes the resume line that mentions each one). Uploading a new resume replaces the previous skills. The gap is computed locally; Gemini writes role-specific reasons and a sustainable 5-hour weekly plan |
-| **Interview prep** | Practice prompts tied to your matched STAR stories |
+| **Interview prep** | Practice prompts built from the strongest resume points for this job |
 | **Workday shutdown** | Opens at the daily cap (or from **Wrap Up Day**) with today’s roles, unique technical skills, structured Gemini advice for tomorrow, and a final LinkedIn Apply lock |
 
 Skills, stories, and application history stay in `chrome.storage.local` on your device.
@@ -44,6 +43,7 @@ services/gemini.js     # shared Gemini client (JSON + embeddings)
 services/aiParser.js   # job description -> structured JSON
 services/skillsGap.js  # skills gap + paced learning plan
 services/resumeSkills.js # resume PDF → skills list
+services/resumeStories.js # resume PDF → STAR stories
 lib/pdfjs/             # vendored pdf.js (Apache-2.0)
 services/interviewPrep.js
 sidepanel/careerTools.js # skills plan + interview prep UIservices/starMatcher.js
