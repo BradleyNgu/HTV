@@ -1,6 +1,7 @@
 import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
 import { extractSkillsFromPdf, SKILL_CATEGORIES } from '../services/resumeSkills.js';
+import { callGeminiJson } from '../services/gemini.js';
 import { initWellbeing, localDateKey } from './wellbeing.js';
 import { initCareerTools } from './careerTools.js';
 
@@ -21,6 +22,20 @@ const els = {
   appliedList: document.getElementById('applied-list'),
   appliedEmpty: document.getElementById('applied-empty'),
   btnAddManual: document.getElementById('btn-add-manual'),
+  btnWrapUp: document.getElementById('btn-wrap-up'),
+  shutdownOverlay: document.getElementById('shutdown-overlay'),
+  shutdownRoleCount: document.getElementById('shutdown-role-count'),
+  shutdownRoleList: document.getElementById('shutdown-role-list'),
+  shutdownRoleEmpty: document.getElementById('shutdown-role-empty'),
+  shutdownSkillList: document.getElementById('shutdown-skill-list'),
+  shutdownSkillEmpty: document.getElementById('shutdown-skill-empty'),
+  shutdownAdviceLoading: document.getElementById('shutdown-advice-loading'),
+  shutdownAdviceContent: document.getElementById('shutdown-advice-content'),
+  shutdownSummary: document.getElementById('shutdown-summary'),
+  shutdownStrategy: document.getElementById('shutdown-strategy'),
+  shutdownStatus: document.getElementById('shutdown-status'),
+  btnCompleteShutdown: document.getElementById('btn-complete-shutdown'),
+  btnCloseShutdown: document.getElementById('btn-close-shutdown'),
   btnScrape: document.getElementById('btn-scrape'),
   btnParse: document.getElementById('btn-parse'),
   jobEmpty: document.getElementById('job-empty'),
@@ -53,6 +68,8 @@ let currentMatches = [];
 let settings = { apiKey: '', dailyAppCap: 4, userSkills: [], skillProfile: [], resumeName: '' };
 // Skill profile shown in the open settings dialog; removals persist on Save.
 let draftProfile = [];
+let shutdownOpening = false;
+let shutdownAutoShownDate = '';
 
 const careerTools = initCareerTools({
   getContext: () => ({ parsed: currentParsed, matches: currentMatches, settings }),
@@ -98,11 +115,16 @@ function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap, adjusted, base
   els.pacingBadge.textContent = atCap ? 'Cap reached' : 'Ready';
   els.pacingBadge.classList.toggle('status-ok', !atCap);
   els.pacingBadge.classList.toggle('status-cap', Boolean(atCap));
+
+  if (atCap) maybeOpenShutdown();
 }
 
 async function refreshPacing() {
   const res = await chrome.runtime.sendMessage({ type: 'GET_PACING_STATE' });
-  if (res?.ok) updatePacingUI(res);
+  if (res?.ok) {
+    updatePacingUI(res);
+    await notifyContentScript(res.atCap);
+  }
 }
 
 function isLinkedInJobsUrl(url = '') {
@@ -288,6 +310,11 @@ async function runParseAndMatch() {
     const parsed = await parseJob(currentJob, settings);
     renderParsed(parsed);
     currentParsed = parsed;
+    await chrome.runtime.sendMessage({
+      type: 'ENRICH_SESSION_JOB',
+      url: currentJob.url,
+      parsedSkills: parsed.requiredTechStack || [],
+    });
 
     const bankRes = await chrome.runtime.sendMessage({ type: 'GET_PROJECT_BANK' });
     const { matches, method, error } = await matchStarStoriesSemantic(
@@ -380,6 +407,233 @@ async function addManualApplication() {
     updatePacingUI(result);
     await notifyContentScript(result.atCap);
   }
+}
+
+// ---- Workday shutdown ritual ----------------------------------------------
+
+const SHUTDOWN_ADVICE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    congratulatorySummary: { type: 'STRING' },
+    strategicAdvice: { type: 'STRING' },
+  },
+  required: ['congratulatorySummary', 'strategicAdvice'],
+};
+
+function fallbackShutdownAdvice(sessionJobs, uniqueSkills) {
+  const count = sessionJobs.length;
+  const focus = uniqueSkills.slice(0, 3);
+  const focusText = focus.length ? focus.join(', ') : 'the roles you selected';
+  const review = uniqueSkills.slice(0, 2);
+  return {
+    congratulatorySummary:
+      count > 0
+        ? `You moved ${count} focused application${count === 1 ? '' : 's'} forward today and protected a clear boundary around the work. Your session concentrated on ${focusText}.`
+        : 'You chose to close the workday intentionally and protect your energy for tomorrow.',
+    strategicAdvice: review.length
+      ? `Tomorrow, spend one short review block on ${review.join(' and ')}. Stop after the planned block so preparation supports your interviews without becoming another endless task.`
+      : 'Tomorrow, review one recurring requirement from your target roles for a single focused block, then step away.',
+  };
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Advice request timed out')), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Structured, non-chatbot Gemini output for the shutdown card.
+ * Always resolves to the same two-field shape; failures use a local fallback.
+ */
+async function generateTailoredAdvice(sessionJobs, uniqueSkills) {
+  const fallback = fallbackShutdownAdvice(sessionJobs, uniqueSkills);
+  if (!settings.apiKey?.trim() || !sessionJobs.length) return fallback;
+
+  const roles = sessionJobs
+    .map(
+      (job) =>
+        `${job.title || 'Untitled role'} at ${job.company || 'Unknown company'}; skills: ${(job.parsedSkills || []).join(', ') || 'none extracted'}`
+    )
+    .join('\n');
+  const prompt = `You create a concise end-of-day strategy for a job seeker. Return ONLY strict JSON matching the schema.
+
+Applications completed today:
+${roles}
+
+Unique technical skills encountered:
+${uniqueSkills.join(', ') || 'none extracted'}
+
+Rules:
+- congratulatorySummary: 1 sentence that celebrates focused progress and names the dominant role/domain pattern.
+- strategicAdvice: 1 or 2 sentences naming exactly 1 or 2 specific technical topics to review tomorrow for likely interview screens.
+- Do not prescribe more applications, hustle, networking, or a long study session.
+- Do not use markdown, lists, generic wellness advice, or conversational filler.
+- The total output should read as 2–3 short sentences.`;
+
+  try {
+    const advice = await withTimeout(
+      callGeminiJson({
+        apiKey: settings.apiKey,
+        prompt,
+        schema: SHUTDOWN_ADVICE_SCHEMA,
+        temperature: 0.3,
+      }),
+      8000
+    );
+    if (!advice?.congratulatorySummary || !advice?.strategicAdvice) return fallback;
+    return {
+      congratulatorySummary: String(advice.congratulatorySummary).trim(),
+      strategicAdvice: String(advice.strategicAdvice).trim(),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function uniqueSessionSkills(sessionJobs) {
+  const seen = new Set();
+  const skills = [];
+  sessionJobs.forEach((job) => {
+    (job.parsedSkills || []).forEach((raw) => {
+      const skill = String(raw || '').trim();
+      const key = skill.toLowerCase();
+      if (skill && !seen.has(key)) {
+        seen.add(key);
+        skills.push(skill);
+      }
+    });
+  });
+  return skills;
+}
+
+function renderShutdownSession(sessionJobs, uniqueSkills) {
+  els.shutdownRoleCount.textContent = String(sessionJobs.length);
+  els.shutdownRoleList.innerHTML = '';
+  els.shutdownRoleEmpty.classList.toggle('hidden', sessionJobs.length > 0);
+
+  sessionJobs.forEach((job) => {
+    const item = document.createElement('li');
+    item.className = 'shutdown-role-item';
+    const dot = document.createElement('span');
+    dot.className = 'shutdown-role-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('div');
+    const title = document.createElement('span');
+    title.className = 'shutdown-role-title';
+    title.textContent = job.title || 'Untitled role';
+    const company = document.createElement('span');
+    company.className = 'shutdown-role-company';
+    company.textContent = job.company || 'Company not captured';
+    copy.append(title, company);
+    item.append(dot, copy);
+    els.shutdownRoleList.appendChild(item);
+  });
+
+  els.shutdownSkillList.innerHTML = '';
+  els.shutdownSkillEmpty.classList.toggle('hidden', uniqueSkills.length > 0);
+  uniqueSkills.forEach((skill) => {
+    const badge = document.createElement('span');
+    badge.className = 'shutdown-skill';
+    badge.textContent = skill;
+    els.shutdownSkillList.appendChild(badge);
+  });
+}
+
+async function renderShutdownAdvice(sessionJobs, uniqueSkills) {
+  els.shutdownAdviceLoading.classList.remove('hidden');
+  els.shutdownAdviceContent.classList.add('hidden');
+
+  const date = localDateKey();
+  const cacheKey = `shutdownAdvice_${date}`;
+  const signature = JSON.stringify(
+    sessionJobs.map((job) => [job.title, job.company, job.parsedSkills || []])
+  );
+  const cached = (await chrome.storage.local.get(cacheKey))[cacheKey];
+  let advice;
+  if (cached?.signature === signature && cached?.advice) {
+    advice = cached.advice;
+  } else {
+    advice = await generateTailoredAdvice(sessionJobs, uniqueSkills);
+    await chrome.storage.local.set({
+      [cacheKey]: { signature, advice, generatedAt: Date.now() },
+    });
+  }
+
+  els.shutdownSummary.textContent = advice.congratulatorySummary;
+  els.shutdownStrategy.textContent = advice.strategicAdvice;
+  els.shutdownAdviceLoading.classList.add('hidden');
+  els.shutdownAdviceContent.classList.remove('hidden');
+}
+
+async function openShutdownOverlay({ automatic = false, sessionState = null } = {}) {
+  if (shutdownOpening || !els.shutdownOverlay.classList.contains('hidden')) return;
+  shutdownOpening = true;
+  try {
+    const state =
+      sessionState || (await chrome.runtime.sendMessage({ type: 'GET_SESSION_STATE' }));
+    if (!state?.ok || (automatic && state.shutdownCompleted)) return;
+
+    const sessionJobs = state.currentSessionJobs || [];
+    const uniqueSkills = uniqueSessionSkills(sessionJobs);
+    renderShutdownSession(sessionJobs, uniqueSkills);
+
+    els.shutdownStatus.textContent = '';
+    els.shutdownStatus.classList.add('hidden');
+    els.btnCompleteShutdown.disabled = false;
+    els.btnCompleteShutdown.textContent = state.shutdownCompleted
+      ? 'Workday Shutdown Complete'
+      : 'Complete Workday Shutdown';
+
+    els.shutdownOverlay.classList.remove('hidden');
+    document.body.classList.add('shutdown-open');
+    els.btnCompleteShutdown.focus();
+    await renderShutdownAdvice(sessionJobs, uniqueSkills);
+  } finally {
+    shutdownOpening = false;
+  }
+}
+
+async function maybeOpenShutdown() {
+  const date = localDateKey();
+  if (shutdownAutoShownDate === date || shutdownOpening) return;
+  const state = await chrome.runtime.sendMessage({ type: 'GET_SESSION_STATE' });
+  if (!state?.ok || !state.atCap || state.shutdownCompleted) return;
+  shutdownAutoShownDate = date;
+  await openShutdownOverlay({ automatic: true, sessionState: state });
+}
+
+function closeShutdownOverlay() {
+  els.shutdownOverlay.classList.add('hidden');
+  document.body.classList.remove('shutdown-open');
+  els.btnWrapUp.focus();
+}
+
+async function completeShutdown() {
+  els.btnCompleteShutdown.disabled = true;
+  els.btnCompleteShutdown.textContent = 'Closing the workday…';
+  const result = await chrome.runtime.sendMessage({ type: 'COMPLETE_SHUTDOWN' });
+  if (!result?.ok) {
+    els.btnCompleteShutdown.disabled = false;
+    els.btnCompleteShutdown.textContent = 'Complete Workday Shutdown';
+    els.shutdownStatus.textContent = result?.error || 'Could not complete shutdown.';
+    els.shutdownStatus.classList.remove('hidden');
+    return;
+  }
+
+  const tab = await getActiveLinkedInTab();
+  if (tab?.id) {
+    await chrome.tabs
+      .sendMessage(tab.id, { type: 'SHUTDOWN_LOCK' })
+      .catch(() => {});
+  }
+  els.shutdownStatus.textContent =
+    'Workday closed. LinkedIn applications are locked until tomorrow.';
+  els.shutdownStatus.classList.remove('hidden');
+  els.btnCompleteShutdown.textContent = 'Workday Shutdown Complete';
+  setTimeout(closeShutdownOverlay, 1200);
 }
 
 async function loadSettings() {
@@ -561,6 +815,14 @@ function initResumeDrop() {
 els.btnScrape.addEventListener('click', scrapeActiveJob);
 els.btnParse.addEventListener('click', runParseAndMatch);
 els.btnAddManual.addEventListener('click', addManualApplication);
+els.btnWrapUp.addEventListener('click', () => openShutdownOverlay());
+els.btnCloseShutdown.addEventListener('click', closeShutdownOverlay);
+els.btnCompleteShutdown.addEventListener('click', completeShutdown);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !els.shutdownOverlay.classList.contains('hidden')) {
+    closeShutdownOverlay();
+  }
+});
 
 els.btnSettings.addEventListener('click', async () => {
   await loadSettings();

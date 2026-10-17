@@ -13,6 +13,9 @@ const DEFAULTS = {
   resumeName: '',
   checkIns: [],
   applicationLog: [],
+  currentSessionJobs: [],
+  parsedSkillsByUrl: {},
+  shutdownCompletedDate: '',
   projectBank: [
     {
       id: 'proj-telemetry',
@@ -77,8 +80,20 @@ function pacingState(state) {
     baseCap,
     adjusted: cap < baseCap,
     atCap: used >= cap,
+    shutdownLocked: state.shutdownCompletedDate === key,
     checkIn,
   };
+}
+
+async function persistDailyLog(date, jobs, extra = {}) {
+  await chrome.storage.local.set({
+    [`log_${date}`]: {
+      date,
+      jobs,
+      updatedAt: Date.now(),
+      ...extra,
+    },
+  });
 }
 
 async function ensureDailyReset() {
@@ -92,11 +107,37 @@ async function ensureDailyReset() {
   if (data.userSkills == null) updates.userSkills = DEFAULTS.userSkills;
   if (data.checkIns == null) updates.checkIns = DEFAULTS.checkIns;
   if (data.applicationLog == null) updates.applicationLog = DEFAULTS.applicationLog;
+  if (data.currentSessionJobs == null) updates.currentSessionJobs = DEFAULTS.currentSessionJobs;
+  if (data.parsedSkillsByUrl == null) updates.parsedSkillsByUrl = DEFAULTS.parsedSkillsByUrl;
+  if (data.shutdownCompletedDate == null) {
+    updates.shutdownCompletedDate = DEFAULTS.shutdownCompletedDate;
+  }
 
   const today = todayKey();
   if (data.lastResetDate !== today) {
     updates.appsSubmittedToday = 0;
     updates.lastResetDate = today;
+    updates.currentSessionJobs = [];
+  } else {
+    // One-time migration for applications recorded before session tracking
+    // existed. Preserve enriched jobs and only add missing entries.
+    const sessionJobs = [...(data.currentSessionJobs || [])];
+    const known = new Set(sessionJobs.map((job) => job.jobKey));
+    for (const entry of (data.applicationLog || []).filter((item) => item.date === today)) {
+      if (known.has(entry.jobKey)) continue;
+      sessionJobs.push({
+        id: entry.id,
+        jobKey: entry.jobKey,
+        title: entry.title,
+        company: entry.company,
+        url: entry.url,
+        parsedSkills: [],
+      });
+      known.add(entry.jobKey);
+    }
+    if (sessionJobs.length !== (data.currentSessionJobs || []).length) {
+      updates.currentSessionJobs = sessionJobs;
+    }
   }
 
   if (Object.keys(updates).length) {
@@ -213,12 +254,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             date: todayKey(),
             at: Date.now(),
           };
+          const sessionJob = {
+            id: entry.id,
+            jobKey,
+            title: entry.title,
+            company: entry.company,
+            url: entry.url,
+            parsedSkills: cleanSkills(
+              message.parsedSkills?.length
+                ? message.parsedSkills
+                : state.parsedSkillsByUrl?.[entry.url] || []
+            ),
+          };
+          const currentSessionJobs = [...(state.currentSessionJobs || []), sessionJob];
           const next = {
             applicationLog: [...log, entry].slice(-200),
+            currentSessionJobs,
             appsSubmittedToday: state.appsSubmittedToday + 1,
             lastResetDate: todayKey(),
           };
           await chrome.storage.local.set(next);
+          await persistDailyLog(todayKey(), currentSessionJobs);
           await updateBadge();
           sendResponse({ ok: true, entry, ...pacingState({ ...state, ...next }) });
           break;
@@ -234,14 +290,59 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
           const next = {
             applicationLog: log.filter((e) => e.id !== message.id),
+            currentSessionJobs: (state.currentSessionJobs || []).filter(
+              (job) => job.jobKey !== entry.jobKey
+            ),
             appsSubmittedToday:
               entry.date === todayKey()
                 ? Math.max(0, state.appsSubmittedToday - 1)
                 : state.appsSubmittedToday,
           };
           await chrome.storage.local.set(next);
+          await persistDailyLog(todayKey(), next.currentSessionJobs);
           await updateBadge();
           sendResponse({ ok: true, ...pacingState({ ...state, ...next }) });
+          break;
+        }
+        case 'ENRICH_SESSION_JOB': {
+          const state = await ensureDailyReset();
+          const skills = cleanSkills(message.parsedSkills);
+          const targetUrl = String(message.url || '').split('?')[0];
+          const parsedSkillsByUrl = {
+            ...(state.parsedSkillsByUrl || {}),
+            ...(targetUrl ? { [targetUrl]: skills } : {}),
+          };
+          const jobs = (state.currentSessionJobs || []).map((job) => {
+            const matches =
+              (message.jobKey && job.jobKey === message.jobKey) ||
+              (targetUrl && String(job.url || '').split('?')[0] === targetUrl);
+            return matches ? { ...job, parsedSkills: skills } : job;
+          });
+          await chrome.storage.local.set({ currentSessionJobs: jobs, parsedSkillsByUrl });
+          await persistDailyLog(todayKey(), jobs);
+          sendResponse({ ok: true, currentSessionJobs: jobs });
+          break;
+        }
+        case 'GET_SESSION_STATE': {
+          const state = await ensureDailyReset();
+          sendResponse({
+            ok: true,
+            currentSessionJobs: state.currentSessionJobs || [],
+            shutdownCompleted: state.shutdownCompletedDate === todayKey(),
+            ...pacingState(state),
+          });
+          break;
+        }
+        case 'COMPLETE_SHUTDOWN': {
+          const state = await ensureDailyReset();
+          const date = todayKey();
+          const jobs = state.currentSessionJobs || [];
+          await chrome.storage.local.set({ shutdownCompletedDate: date });
+          await persistDailyLog(date, jobs, { completedAt: Date.now() });
+          sendResponse({
+            ok: true,
+            ...pacingState({ ...state, shutdownCompletedDate: date }),
+          });
           break;
         }
         case 'SAVE_CHECKIN': {

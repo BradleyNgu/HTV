@@ -72,6 +72,7 @@
 
   let lastUrl = location.href;
   let pacingAtCap = false;
+  let lastPacingState = null;
 
   /** Prefer textContent so collapsed "Show more" markup is still readable. */
   function textOf(el, { visibleOnly = false } = {}) {
@@ -540,7 +541,7 @@
 
   /** The "Apply" / "Easy Apply" button on a job — not "Applied", "Apply filters", etc. */
   function isApplyControl(el) {
-    if (!el || el.closest?.('#sjsc-pacing-banner, #sjsc-toast')) return false;
+    if (!el || el.closest?.('#sjsc-toast')) return false;
     const text = controlText(el);
     const label = controlLabel(el);
     if (/\bapplied\b/i.test(text) || /\bapplied\b/i.test(label)) return false;
@@ -616,7 +617,7 @@
         method,
       });
       if (!res?.ok) return;
-      setApplyDisabled(Boolean(res.atCap));
+      setApplyDisabled(Boolean(res.atCap || res.shutdownLocked), res);
       showToast(
         res.duplicate
           ? 'Already counted toward today\u2019s pace.'
@@ -660,8 +661,9 @@
     }, 500);
   }
 
-  function setApplyDisabled(disabled) {
+  function setApplyDisabled(disabled, state = null) {
     pacingAtCap = disabled;
+    if (state) lastPacingState = state;
     const buttons = findApplyControls();
 
     buttons.forEach((btn) => {
@@ -672,7 +674,12 @@
         if (!btn.dataset.sjscOriginalTitle) {
           btn.dataset.sjscOriginalTitle = btn.getAttribute('title') || '';
         }
-        btn.setAttribute('title', 'Daily application cap reached — paced by Job Search Copilot');
+        btn.setAttribute(
+          'title',
+          state?.shutdownLocked
+            ? 'Daily cap reached! Protect your energy for tomorrow.'
+            : 'Daily application cap reached — paced by Job Search Copilot'
+        );
       } else {
         btn.classList.remove('sjsc-apply-disabled');
         btn.removeAttribute('aria-disabled');
@@ -688,30 +695,54 @@
       }
     });
 
-    ensureOverlay(disabled);
+    // Remove banners left behind by an older extension version.
+    document.getElementById('sjsc-pacing-banner')?.remove();
   }
 
-  function ensureOverlay(show) {
-    let banner = document.getElementById('sjsc-pacing-banner');
-    if (!show) {
-      banner?.remove();
-      return;
+  function pacingMessage(state = lastPacingState) {
+    if (state?.shutdownLocked) {
+      return 'Workday shutdown is complete. Applications unlock tomorrow.';
     }
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'sjsc-pacing-banner';
-      banner.innerHTML =
-        '<strong>Daily cap reached</strong> — Easy Apply is paused so you can apply sustainably. Open the Copilot side panel to adjust pacing.';
-      document.body.appendChild(banner);
-    }
+    const used = Number(state?.appsSubmittedToday);
+    const cap = Number(state?.dailyAppCap);
+    const base = Number(state?.baseCap);
+    const hasCounts = Number.isFinite(used) && Number.isFinite(cap);
+    const adjustment =
+      state?.adjusted && Number.isFinite(base)
+        ? ` Wellbeing adjusted the cap from ${base} to ${cap}.`
+        : '';
+    return hasCounts
+      ? `Application paused: ${used} of ${cap} used.${adjustment}`
+      : 'Application paused because today’s cap is reached.';
   }
 
   async function syncPacing() {
     try {
       const res = await chrome.runtime.sendMessage({ type: 'GET_PACING_STATE' });
-      if (res?.ok) setApplyDisabled(Boolean(res.atCap));
+      if (res?.ok) setApplyDisabled(Boolean(res.atCap || res.shutdownLocked), res);
     } catch {
       /* ignore */
+    }
+  }
+
+  async function verifyAndExplainCap() {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'GET_PACING_STATE' });
+      if (!res?.ok) {
+        showToast(pacingMessage());
+        return;
+      }
+
+      setApplyDisabled(Boolean(res.atCap || res.shutdownLocked), res);
+      if (res.atCap || res.shutdownLocked) {
+        showToast(pacingMessage(res));
+      } else {
+        showToast(
+          `Pacing refreshed: ${res.appsSubmittedToday} of ${res.dailyAppCap} used. Apply is available — click again.`
+        );
+      }
+    } catch {
+      showToast(pacingMessage());
     }
   }
 
@@ -725,7 +756,9 @@
         if (pacingAtCap) {
           e.preventDefault();
           e.stopPropagation();
-          ensureOverlay(true);
+          // Local state can become stale after extension reloads or settings
+          // changes. Confirm against storage before claiming the cap is reached.
+          verifyAndExplainCap();
           return;
         }
         // Apply on the company's site can't be observed, so count the click.
@@ -757,7 +790,24 @@
       return false;
     }
     if (message?.type === 'PACING_UPDATED') {
-      setApplyDisabled(Boolean(message.atCap));
+      // Apply the panel's update immediately, then reconcile with storage in
+      // case another application/check-in update raced this message.
+      const immediateState = {
+        ...(lastPacingState || {}),
+        atCap: Boolean(message.atCap),
+      };
+      setApplyDisabled(
+        Boolean(immediateState.atCap || immediateState.shutdownLocked),
+        immediateState
+      );
+      syncPacing();
+      sendResponse({ ok: true });
+      return false;
+    }
+    if (message?.type === 'SHUTDOWN_LOCK') {
+      const state = { ...(lastPacingState || {}), shutdownLocked: true };
+      setApplyDisabled(true, state);
+      showToast('Workday shutdown complete. Applications unlock tomorrow.');
       sendResponse({ ok: true });
       return false;
     }
@@ -788,6 +838,20 @@
       }, 300);
     }).observe(document.body, { childList: true, subtree: true });
   }
+
+  // Apply/check-in/settings changes should update LinkedIn immediately rather
+  // than waiting for the 30-second fallback poll.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (
+      area === 'local' &&
+      (changes.appsSubmittedToday ||
+        changes.dailyAppCap ||
+        changes.checkIns ||
+        changes.shutdownCompletedDate)
+    ) {
+      syncPacing();
+    }
+  });
 
   syncPacing();
   setInterval(syncPacing, 30_000);

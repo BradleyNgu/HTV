@@ -10,28 +10,6 @@ button.sjsc-apply-disabled,
   position: relative;
 }
 
-#sjsc-pacing-banner {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2147483646;
-  max-width: min(520px, calc(100vw - 32px));
-  padding: 12px 18px;
-  border-radius: 8px;
-  background: #1b1f23;
-  color: #fff;
-  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  line-height: 1.4;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  border-left: 4px solid #b24020;
-}
-
-#sjsc-pacing-banner strong {
-  color: #ffd7d0;
-}
-
 #sjsc-toast {
   position: fixed;
   bottom: 24px;
