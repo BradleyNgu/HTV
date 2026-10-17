@@ -1,7 +1,12 @@
 import { parseJob } from '../services/aiParser.js';
-import { matchStarStories } from '../services/starMatcher.js';
+import { matchStarStoriesSemantic } from '../services/starMatcher.js';
+import { initWellbeing } from './wellbeing.js';
+import { initCareerTools } from './careerTools.js';
 
 const els = {
+  pacingNote: document.getElementById('pacing-note'),
+  starMethod: document.getElementById('star-method'),
+  settingSkills: document.getElementById('setting-skills'),
   pacingBadge: document.getElementById('pacing-badge'),
   pacingFill: document.getElementById('pacing-fill'),
   pacingMeter: document.getElementById('pacing-meter'),
@@ -35,7 +40,13 @@ const els = {
 };
 
 let currentJob = null;
-let settings = { apiKey: '', dailyAppCap: 4 };
+let currentParsed = null;
+let currentMatches = [];
+let settings = { apiKey: '', dailyAppCap: 4, userSkills: [] };
+
+const careerTools = initCareerTools({
+  getContext: () => ({ parsed: currentParsed, matches: currentMatches, settings }),
+});
 
 function showError(el, message) {
   if (!message) {
@@ -57,7 +68,12 @@ function renderBadges(container, items, className = '') {
   });
 }
 
-function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap }) {
+function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap, adjusted, baseCap }) {
+  els.pacingNote.textContent = adjusted
+    ? `Cap eased from ${baseCap} to ${dailyAppCap} after today's check-in.`
+    : '';
+  els.pacingNote.classList.toggle('hidden', !adjusted);
+
   const used = appsSubmittedToday ?? 0;
   const cap = dailyAppCap ?? 4;
   const pct = Math.min(100, Math.round((used / Math.max(cap, 1)) * 100));
@@ -200,13 +216,21 @@ function renderParsed(parsed) {
   }
 }
 
-function renderStar(matches) {
+function renderStar(matches, method = 'keyword', error = '') {
   els.starContent.innerHTML = '';
   if (!matches?.length) {
     els.starEmpty.classList.remove('hidden');
+    els.starMethod.classList.add('hidden');
     return;
   }
   els.starEmpty.classList.add('hidden');
+
+  const methodLabel =
+    method === 'semantic'
+      ? 'Ranked by meaning (Gemini embeddings), not just keywords.'
+      : `Ranked by keyword overlap${error ? ` (semantic matching unavailable: ${error})` : '. Add a Gemini key for semantic matching.'}`;
+  els.starMethod.textContent = methodLabel;
+  els.starMethod.classList.remove('hidden');
 
   matches.forEach((m) => {
     const card = document.createElement('article');
@@ -248,17 +272,36 @@ async function runParseAndMatch() {
   els.btnParse.disabled = true;
   els.btnParse.textContent = 'Parsing…';
   try {
+    careerTools.reset();
+    currentParsed = null;
+    currentMatches = [];
+
     const parsed = await parseJob(currentJob, settings);
     renderParsed(parsed);
+    currentParsed = parsed;
 
     const bankRes = await chrome.runtime.sendMessage({ type: 'GET_PROJECT_BANK' });
-    const matches = matchStarStories(parsed, bankRes?.projectBank || [], 2);
-    renderStar(matches);
+    const { matches, method, error } = await matchStarStoriesSemantic(
+      parsed,
+      bankRes?.projectBank || [],
+      { apiKey: settings.apiKey, limit: 2, job: currentJob }
+    );
+    currentMatches = matches;
+    renderStar(matches, method, error);
   } catch (err) {
     showError(els.parseError, err?.message || 'Parse failed.');
   } finally {
     els.btnParse.disabled = false;
     els.btnParse.textContent = 'Parse requirements';
+    careerTools.refresh();
+  }
+}
+
+/** Tell the LinkedIn tab the cap changed so Easy Apply locks/unlocks right away. */
+async function notifyContentScript(atCap) {
+  const tab = await getActiveLinkedInTab();
+  if (tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: 'PACING_UPDATED', atCap }).catch(() => {});
   }
 }
 
@@ -266,11 +309,7 @@ async function logApplication() {
   const res = await chrome.runtime.sendMessage({ type: 'INCREMENT_APP_COUNT' });
   if (res?.ok || res?.atCap != null) {
     updatePacingUI(res);
-    // Notify content script on active tab
-    const tab = await getActiveLinkedInTab();
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'PACING_UPDATED', atCap: res.atCap }).catch(() => {});
-    }
+    await notifyContentScript(res.atCap);
   }
   if (!res?.ok && res?.error) {
     showError(els.jobError, res.error);
@@ -283,9 +322,11 @@ async function loadSettings() {
   settings = {
     apiKey: res.apiKey || '',
     dailyAppCap: res.dailyAppCap ?? 4,
+    userSkills: res.userSkills || [],
   };
   els.settingCap.value = settings.dailyAppCap;
   els.settingKey.value = settings.apiKey;
+  els.settingSkills.value = settings.userSkills.join(', ');
 }
 
 els.btnScrape.addEventListener('click', scrapeActiveJob);
@@ -304,15 +345,20 @@ els.settingsForm.addEventListener('submit', async (e) => {
   settings = {
     dailyAppCap: Number(els.settingCap.value) || 4,
     apiKey: els.settingKey.value.trim(),
+    userSkills: els.settingSkills.value
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean),
   };
   await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', ...settings });
   els.settingsDialog.close();
+  await loadSettings(); // pick up the cleaned/deduped skills list
   await refreshPacing();
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes.appsSubmittedToday || changes.dailyAppCap) {
+  if (changes.appsSubmittedToday || changes.dailyAppCap || changes.checkIns) {
     refreshPacing();
   }
 });
@@ -320,5 +366,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 (async function init() {
   await loadSettings();
   await refreshPacing();
+  await initWellbeing({
+    onSaved: async (pacing) => {
+      updatePacingUI(pacing);
+      await notifyContentScript(pacing.atCap);
+    },
+  });
   await scrapeActiveJob();
 })();

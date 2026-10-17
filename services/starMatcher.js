@@ -1,7 +1,14 @@
 /**
- * Semantic-ish STAR story alignment against the local project bank.
- * Returns top 2 matches as structured Situation / Task / Action / Result cards.
+ * STAR story alignment against the local project bank.
+ *
+ * - matchStarStories: fast offline keyword overlap (also the fallback).
+ * - matchStarStoriesSemantic: Gemini embeddings + cosine similarity, with
+ *   story vectors cached in chrome.storage.local so each story is embedded once.
+ *
+ * Returns matches as structured Situation / Task / Action / Result cards.
  */
+
+import { embedTexts } from './gemini.js';
 
 function tokenize(text) {
   return String(text || '')
@@ -88,4 +95,98 @@ export function matchStarStories(parsedJob, projectBank = [], limit = 2) {
     if (!top.find((t) => t.id === r.id)) top.push(r);
   }
   return top;
+}
+
+// ---------------------------------------------------------------------------
+// Semantic matching
+// ---------------------------------------------------------------------------
+
+const EMBEDDING_CACHE_KEY = 'embeddingCache';
+
+function hashText(text) {
+  let h = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  }
+  return String(h >>> 0);
+}
+
+function storyText(p) {
+  return [p.title, (p.tags || []).join(', '), p.situation, p.task, p.action, p.result]
+    .filter(Boolean)
+    .join('. ');
+}
+
+function jobText(parsedJob, job) {
+  return [
+    job?.title,
+    `Seniority: ${parsedJob?.seniorityLevel || ''}`,
+    `Tech: ${(parsedJob?.requiredTechStack || []).join(', ')}`,
+    `Domain: ${(parsedJob?.domainConstraints || []).join(', ')}`,
+    `Responsibilities: ${(parsedJob?.keyResponsibilities || []).join('. ')}`,
+  ]
+    .filter(Boolean)
+    .join('. ');
+}
+
+export function cosineSimilarity(a, b) {
+  if (!a?.length || a.length !== b?.length) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+}
+
+/**
+ * Rank stories by embedding similarity to the job. Falls back to keyword
+ * matching (and reports why) if there is no key or the API call fails.
+ *
+ * @returns {Promise<{ matches: Array, method: 'semantic'|'keyword', error?: string }>}
+ */
+export async function matchStarStoriesSemantic(
+  parsedJob,
+  projectBank = [],
+  { apiKey = '', limit = 2, job = null } = {}
+) {
+  // Keyword pass gives every story a matchedSignals list for the UI badges.
+  const keywordRanked = matchStarStories(parsedJob, projectBank, projectBank.length);
+  const keywordResult = { matches: keywordRanked.slice(0, limit), method: 'keyword' };
+
+  if (!apiKey.trim() || !projectBank.length) return keywordResult;
+
+  try {
+    const stored = await chrome.storage.local.get(EMBEDDING_CACHE_KEY);
+    const cache = stored[EMBEDDING_CACHE_KEY] || {};
+
+    const texts = {};
+    const stale = [];
+    for (const p of projectBank) {
+      const text = storyText(p);
+      const hash = hashText(text);
+      texts[p.id] = { text, hash };
+      if (!cache[p.id] || cache[p.id].hash !== hash) stale.push(p.id);
+    }
+
+    // One request: any un-cached stories + the job.
+    const batch = [...stale.map((id) => texts[id].text), jobText(parsedJob, job)];
+    const vectors = await embedTexts({ apiKey, texts: batch });
+    stale.forEach((id, i) => {
+      cache[id] = { hash: texts[id].hash, values: vectors[i] };
+    });
+    const jobVector = vectors[vectors.length - 1];
+    if (stale.length) await chrome.storage.local.set({ [EMBEDDING_CACHE_KEY]: cache });
+
+    const ranked = keywordRanked
+      .map((m) => ({ ...m, similarity: cosineSimilarity(jobVector, cache[m.id]?.values) }))
+      .sort((a, b) => b.similarity - a.similarity);
+
+    return { matches: ranked.slice(0, limit), method: 'semantic' };
+  } catch (err) {
+    return { ...keywordResult, error: err?.message || 'Semantic matching failed' };
+  }
 }

@@ -31,7 +31,30 @@
       <p class="pacing-meta">
         <span id="pacing-count">0</span> / <span id="pacing-cap">4</span> applications today
       </p>
+      <p id="pacing-note" class="note hidden"></p>
       <button type="button" id="btn-log-apply" class="btn btn-primary">Log an application</button>
+    </section>
+
+    <section class="checkin" aria-labelledby="checkin-heading">
+      <div class="pacing-row">
+        <h2 id="checkin-heading" class="section-title">Daily check-in</h2>
+        <span id="checkin-status" class="status-pill status-neutral">Not logged</span>
+      </div>
+      <p class="muted checkin-help">
+        Takes 10 seconds. A rough day eases today's application cap and study load. Stored only on this device.
+      </p>
+      <div class="scale">
+        <span class="scale-label" id="mood-label">Mood</span>
+        <div class="scale-buttons" id="mood-buttons" role="radiogroup" aria-labelledby="mood-label"></div>
+      </div>
+      <div class="scale">
+        <span class="scale-label" id="energy-label">Energy</span>
+        <div class="scale-buttons" id="energy-buttons" role="radiogroup" aria-labelledby="energy-label"></div>
+      </div>
+      <button type="button" id="btn-save-checkin" class="btn btn-primary" disabled>Save check-in</button>
+      <p id="checkin-note" class="note hidden" role="status"></p>
+      <p class="field-label trend-label">Last 7 days</p>
+      <div class="trend" id="trend" role="img" aria-label="Wellbeing trend for the last 7 days"></div>
     </section>
 
     <section class="job-card" aria-labelledby="job-heading">
@@ -76,10 +99,65 @@
       <p id="parse-error" class="error-inline hidden" role="alert"></p>
     </section>
 
+    <section class="gap" aria-labelledby="gap-heading">
+      <div class="pacing-row">
+        <h2 id="gap-heading" class="section-title">Skills fit &amp; paced plan</h2>
+        <button type="button" id="btn-gap" class="btn btn-ghost" disabled>Analyze</button>
+      </div>
+      <div id="gap-empty" class="empty-state">
+        Parse a job, add your skills in ⚙ settings, then analyze to get a learning plan sized to your energy.
+      </div>
+      <div id="gap-content" class="hidden">
+        <div class="fit-row">
+          <div class="fit-meter" aria-hidden="true"><div class="fit-fill" id="fit-fill"></div></div>
+          <span id="fit-label" class="fit-label"></span>
+        </div>
+        <div class="field">
+          <span class="field-label">You already cover</span>
+          <div id="matched-badges" class="badge-row"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Gaps to close</span>
+          <ul id="missing-list" class="gap-list"></ul>
+        </div>
+        <div class="field">
+          <span class="field-label" id="plan-label">Paced plan</span>
+          <div id="plan-list" class="plan-list"></div>
+        </div>
+        <p id="gap-source" class="muted"></p>
+      </div>
+      <p id="gap-error" class="error-inline hidden" role="alert"></p>
+    </section>
+
     <section class="star" aria-labelledby="star-heading">
       <h2 id="star-heading" class="section-title">STAR story matches</h2>
       <div id="star-empty" class="empty-state">Top matching project stories will show as Situation · Task · Action · Result cards.</div>
       <div id="star-content" class="star-list"></div>
+      <p id="star-method" class="muted hidden"></p>
+    </section>
+
+    <section class="prep" aria-labelledby="prep-heading">
+      <div class="pacing-row">
+        <h2 id="prep-heading" class="section-title">Interview prep</h2>
+        <button type="button" id="btn-prep" class="btn btn-ghost" disabled>Generate prompts</button>
+      </div>
+      <div id="prep-empty" class="empty-state">
+        After you parse a job, generate practice prompts tied to your own STAR stories.
+      </div>
+      <div id="prep-content" class="prep-list hidden"></div>
+      <p id="prep-error" class="error-inline hidden" role="alert"></p>
+
+      <div class="field prep-calm">
+        <span class="field-label">Calm-down checklist</span>
+        <ul id="calm-list" class="calm-list"></ul>
+      </div>
+      <div class="breathe">
+        <div class="breathe-circle" id="breathe-circle" data-phase="idle" aria-hidden="true"></div>
+        <div class="breathe-body">
+          <p id="breathe-text" class="breathe-text" role="status" aria-live="polite">Box breathing · 4 rounds · 4-4-4-4</p>
+          <button type="button" id="btn-breathe" class="btn btn-ghost">Start 60-second reset</button>
+        </div>
+      </div>
     </section>
 
     <dialog id="settings-dialog" class="dialog">
@@ -88,6 +166,10 @@
         <label class="label">
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
+        </label>
+        <label class="label">
+          Your skills <span class="muted">(comma separated — used for the skills-gap plan)</span>
+          <textarea id="setting-skills" rows="3" placeholder="Python, React, SQL, Docker"></textarea>
         </label>
         <label class="label">
           Gemini API key <span class="muted">(optional — heuristic parse works offline)</span>

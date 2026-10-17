@@ -1,36 +1,19 @@
 /**
  * Structured JSON job parser — no conversational chat UI.
- * Uses OpenAI or Gemini with schema-enforced JSON responses.
+ * Uses Gemini with schema-enforced JSON responses.
  */
 
-// Model IDs are retired periodically — update here if the API returns a 404.
-const GEMINI_MODEL = 'gemini-3.8-flash';
+import { callGeminiJson } from './gemini.js';
 
-export const PARSED_JOB_SCHEMA = {
-  type: 'object',
+const PARSED_JOB_SCHEMA = {
+  type: 'OBJECT',
   properties: {
-    requiredTechStack: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Technologies, languages, frameworks explicitly required',
-    },
-    domainConstraints: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Domain constraints e.g. low-latency, real-time streams, microservices',
-    },
-    seniorityLevel: {
-      type: 'string',
-      description: 'Inferred seniority e.g. Junior, Mid, Senior, Staff',
-    },
-    keyResponsibilities: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Top 4–6 concrete responsibilities',
-    },
+    requiredTechStack: { type: 'ARRAY', items: { type: 'STRING' } },
+    domainConstraints: { type: 'ARRAY', items: { type: 'STRING' } },
+    seniorityLevel: { type: 'STRING' },
+    keyResponsibilities: { type: 'ARRAY', items: { type: 'STRING' } },
   },
   required: ['requiredTechStack', 'domainConstraints', 'seniorityLevel', 'keyResponsibilities'],
-  additionalProperties: false,
 };
 
 const SYSTEM_PROMPT = `You extract structured hiring signals from LinkedIn job descriptions for software engineers.
@@ -111,48 +94,13 @@ function heuristicParse(job) {
 }
 
 async function parseWithGemini(job, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `${SYSTEM_PROMPT}\n\n${buildUserPrompt(job)}` }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            requiredTechStack: { type: 'ARRAY', items: { type: 'STRING' } },
-            domainConstraints: { type: 'ARRAY', items: { type: 'STRING' } },
-            seniorityLevel: { type: 'STRING' },
-            keyResponsibilities: { type: 'ARRAY', items: { type: 'STRING' } },
-          },
-          required: [
-            'requiredTechStack',
-            'domainConstraints',
-            'seniorityLevel',
-            'keyResponsibilities',
-          ],
-        },
-      },
-    }),
+  const parsed = await callGeminiJson({
+    apiKey,
+    prompt: `${SYSTEM_PROMPT}\n\n${buildUserPrompt(job)}`,
+    schema: PARSED_JOB_SCHEMA,
+    temperature: 0.1,
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini error ${res.status}: ${errText.slice(0, 180)}`);
-  }
-
-  const data = await res.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!raw) throw new Error('Empty Gemini response');
-  return { ...JSON.parse(raw), _source: 'gemini' };
+  return { ...parsed, _source: 'gemini' };
 }
 
 /**
