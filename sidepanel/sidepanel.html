@@ -105,7 +105,7 @@
         <button type="button" id="btn-gap" class="btn btn-ghost" disabled>Analyze</button>
       </div>
       <div id="gap-empty" class="empty-state">
-        Parse a job, add your skills in ⚙ settings, then analyze to get a learning plan sized to your energy.
+        Parse a job, upload your resume in ⚙ settings, then analyze to get a learning plan sized to your energy.
       </div>
       <div id="gap-content" class="hidden">
         <div class="fit-row">
@@ -167,10 +167,24 @@
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
         </label>
-        <label class="label">
-          Your skills <span class="muted">(comma separated — used for the skills-gap plan)</span>
-          <textarea id="setting-skills" rows="3" placeholder="Python, React, SQL, Docker"></textarea>
-        </label>
+        <div class="label">
+          <span>Your skills <span class="muted">(from your resume — used for the skills-gap plan)</span></span>
+          <div
+            id="resume-drop"
+            class="dropzone"
+            role="button"
+            tabindex="0"
+            aria-describedby="resume-drop-hint"
+          >
+            <span class="dropzone-icon" aria-hidden="true">📄</span>
+            <span id="resume-drop-text" class="dropzone-text">Drop your resume PDF here</span>
+            <span id="resume-drop-hint" class="dropzone-hint">or click to browse · text is read on this device</span>
+          </div>
+          <input type="file" id="resume-file" accept="application/pdf,.pdf" hidden />
+          <p id="resume-status" class="muted hidden" role="status"></p>
+          <p id="resume-error" class="error-inline hidden" role="alert"></p>
+          <div id="skill-chips" class="badge-row skill-chips"></div>
+        </div>
         <label class="label">
           Gemini API key <span class="muted">(optional — heuristic parse works offline)</span>
           <input type="password" id="setting-key" placeholder="Gemini API key" autocomplete="off" />

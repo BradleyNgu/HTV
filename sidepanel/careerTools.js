@@ -123,7 +123,7 @@ export function initCareerTools({ getContext }) {
     }
     const skills = ctx.settings.userSkills || [];
     if (!skills.length) {
-      setError(gap.error, 'Add your skills in ⚙ settings first so there is something to compare.');
+      setError(gap.error, 'Upload your resume in ⚙ settings first so there is something to compare.');
       return;
     }
 

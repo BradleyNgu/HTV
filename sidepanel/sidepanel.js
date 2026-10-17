@@ -1,12 +1,18 @@
 import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
+import { extractSkillsFromPdf } from '../services/resumeSkills.js';
 import { initWellbeing } from './wellbeing.js';
 import { initCareerTools } from './careerTools.js';
 
 const els = {
   pacingNote: document.getElementById('pacing-note'),
   starMethod: document.getElementById('star-method'),
-  settingSkills: document.getElementById('setting-skills'),
+  resumeDrop: document.getElementById('resume-drop'),
+  resumeDropText: document.getElementById('resume-drop-text'),
+  resumeFile: document.getElementById('resume-file'),
+  resumeStatus: document.getElementById('resume-status'),
+  resumeError: document.getElementById('resume-error'),
+  skillChips: document.getElementById('skill-chips'),
   pacingBadge: document.getElementById('pacing-badge'),
   pacingFill: document.getElementById('pacing-fill'),
   pacingMeter: document.getElementById('pacing-meter'),
@@ -43,6 +49,8 @@ let currentJob = null;
 let currentParsed = null;
 let currentMatches = [];
 let settings = { apiKey: '', dailyAppCap: 4, userSkills: [] };
+// Skills shown in the open settings dialog; only persisted on Save.
+let draftSkills = [];
 
 const careerTools = initCareerTools({
   getContext: () => ({ parsed: currentParsed, matches: currentMatches, settings }),
@@ -326,7 +334,102 @@ async function loadSettings() {
   };
   els.settingCap.value = settings.dailyAppCap;
   els.settingKey.value = settings.apiKey;
-  els.settingSkills.value = settings.userSkills.join(', ');
+  draftSkills = [...settings.userSkills];
+  renderSkillChips();
+}
+
+function renderSkillChips() {
+  els.skillChips.innerHTML = '';
+  if (!draftSkills.length) {
+    const empty = document.createElement('span');
+    empty.className = 'muted';
+    empty.textContent = 'No skills yet — drop a resume above.';
+    els.skillChips.appendChild(empty);
+    return;
+  }
+  draftSkills.forEach((skill, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'badge skill-chip';
+    chip.textContent = skill;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'chip-remove';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `Remove ${skill}`);
+    remove.addEventListener('click', () => {
+      draftSkills.splice(i, 1);
+      renderSkillChips();
+    });
+    chip.appendChild(remove);
+    els.skillChips.appendChild(chip);
+  });
+}
+
+function setResumeStatus(message) {
+  els.resumeStatus.textContent = message || '';
+  els.resumeStatus.classList.toggle('hidden', !message);
+}
+
+async function handleResumeFile(file) {
+  if (!file) return;
+  showError(els.resumeError, '');
+  setResumeStatus('');
+  els.resumeDrop.classList.add('busy');
+  els.resumeDropText.textContent = `Reading ${file.name}…`;
+  try {
+    const { skills, source, error } = await extractSkillsFromPdf(file, {
+      apiKey: els.settingKey.value,
+    });
+    if (!skills.length) {
+      throw new Error('No recognizable skills found in that PDF.');
+    }
+    draftSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
+    renderSkillChips();
+    const via = {
+      gemini: 'via Gemini',
+      catalog: 'via offline keyword match — add a Gemini key for better results',
+      'catalog-fallback': `via offline keyword match (Gemini failed: ${error})`,
+    }[source];
+    setResumeStatus(`Found ${draftSkills.length} skills in ${file.name} ${via}. Remove any that don't fit, then Save.`);
+  } catch (err) {
+    showError(els.resumeError, err?.message || 'Could not read that PDF.');
+  } finally {
+    els.resumeDrop.classList.remove('busy');
+    els.resumeDropText.textContent = 'Drop your resume PDF here';
+    els.resumeFile.value = '';
+  }
+}
+
+function initResumeDrop() {
+  const zone = els.resumeDrop;
+  zone.addEventListener('click', () => els.resumeFile.click());
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      els.resumeFile.click();
+    }
+  });
+  els.resumeFile.addEventListener('change', () => handleResumeFile(els.resumeFile.files?.[0]));
+
+  ['dragenter', 'dragover'].forEach((type) =>
+    zone.addEventListener(type, (e) => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    })
+  );
+  ['dragleave', 'dragend'].forEach((type) =>
+    zone.addEventListener(type, (e) => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('dragover');
+    })
+  );
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleResumeFile(e.dataTransfer?.files?.[0]);
+  });
+
+  // A PDF dropped outside the zone would otherwise replace the side panel with the file.
+  ['dragover', 'drop'].forEach((type) => window.addEventListener(type, (e) => e.preventDefault()));
 }
 
 els.btnScrape.addEventListener('click', scrapeActiveJob);
@@ -335,8 +438,12 @@ els.btnLogApply.addEventListener('click', logApplication);
 
 els.btnSettings.addEventListener('click', async () => {
   await loadSettings();
+  showError(els.resumeError, '');
+  setResumeStatus('');
   els.settingsDialog.showModal();
 });
+
+initResumeDrop();
 
 els.btnCloseSettings.addEventListener('click', () => els.settingsDialog.close());
 
@@ -345,10 +452,7 @@ els.settingsForm.addEventListener('submit', async (e) => {
   settings = {
     dailyAppCap: Number(els.settingCap.value) || 4,
     apiKey: els.settingKey.value.trim(),
-    userSkills: els.settingSkills.value
-      .split(/[,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean),
+    userSkills: draftSkills,
   };
   await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', ...settings });
   els.settingsDialog.close();
