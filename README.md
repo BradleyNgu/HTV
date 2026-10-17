@@ -22,16 +22,15 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | **STAR match** | Ranks local project bank (Gemini embeddings when a key is set, keyword overlap otherwise) and surfaces top 2 Situation / Task / Action / Result cards |
 | **Skills fit & paced plan** | Compares the job's required tech to the skills pulled from the resume PDF you drop into ⚙ settings (text is extracted on-device with pdf.js; with a Gemini key, Gemini describes each skill's category, proficiency, years, and how you used it; otherwise a keyword catalog groups skills and quotes the resume line that mentions each one). Uploading a new resume replaces the previous skills. The gap is computed locally; Gemini writes role-specific reasons and a sustainable 5-hour weekly plan |
 | **Interview prep** | Practice prompts tied to your matched STAR stories |
-| **Gmail rejection recovery** | Adds an **Analyze rejection** button only when a Gmail message is open. A click sends that one email plus the locally saved resume skill profile to Gemini, logs a neutral reflection and one small next step, and highlights evidence-based gaps that recur across outcomes |
 | **Workday shutdown** | Opens at the daily cap (or from **Wrap Up Day**) with today’s roles, unique technical skills, structured Gemini advice for tomorrow, and a final LinkedIn Apply lock |
 
-Skills, stories, application history, and structured rejection results stay in `chrome.storage.local` on your device. The extension never scans the Gmail inbox automatically. It reads an open message only after **Analyze rejection** is clicked; that message and the resume profile are sent to Gemini for analysis. Raw email bodies are not stored.
+Skills, stories, and application history stay in `chrome.storage.local` on your device.
 
 Completed sessions are archived locally under `log_YYYY-MM-DD`; no external database is required.
 
 ## Gemini API key
 
-Open the side panel, click the ⚙ gear, and paste your Gemini API key. It is stored locally in `chrome.storage.local`. Without a key, local heuristic job features still work, but Gmail rejection analysis requires Gemini.
+Open the side panel, click the ⚙ gear, and paste your Gemini API key. It is stored locally in `chrome.storage.local`. Without a key, local heuristic job features still work.
 
 ## Project layout
 
@@ -39,10 +38,8 @@ Open the side panel, click the ⚙ gear, and paste your Gemini API key. It is st
 manifest.json
 background.js          # storage, badge, side panel, pacing
 content.js / content.css
-gmailRejection.js / gmailRejection.css # click-to-analyze Gmail integration
 sidepanel/             # LinkedIn-inspired UI
 services/gemini.js     # shared Gemini client (JSON + embeddings)
-services/rejectionRecovery.js # structured Gemini rejection analysis
 services/aiParser.js   # job description -> structured JSON
 services/skillsGap.js  # skills gap + paced learning plan
 services/resumeSkills.js # resume PDF → skills list

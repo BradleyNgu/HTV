@@ -26,13 +26,6 @@ const els = {
   pacingCap: document.getElementById('pacing-cap'),
   appliedList: document.getElementById('applied-list'),
   appliedEmpty: document.getElementById('applied-empty'),
-  recoveryCount: document.getElementById('recovery-count'),
-  recoveryEmpty: document.getElementById('recovery-empty'),
-  recoveryContent: document.getElementById('recovery-content'),
-  recoveryGapsField: document.getElementById('recovery-gaps-field'),
-  recoveryGaps: document.getElementById('recovery-gaps'),
-  recoveryList: document.getElementById('recovery-list'),
-  recoveryError: document.getElementById('recovery-error'),
   btnAddManual: document.getElementById('btn-add-manual'),
   btnWrapUp: document.getElementById('btn-wrap-up'),
   shutdownOverlay: document.getElementById('shutdown-overlay'),
@@ -408,97 +401,6 @@ async function renderApplications() {
     item.append(info, remove);
     els.appliedList.appendChild(item);
   });
-}
-
-function renderRejections(history = [], recurringGaps = []) {
-  els.recoveryCount.textContent = `${history.length} logged`;
-  els.recoveryEmpty.classList.toggle('hidden', history.length > 0);
-  els.recoveryContent.classList.toggle('hidden', history.length === 0);
-  els.recoveryGapsField.classList.toggle('hidden', !recurringGaps.length);
-  els.recoveryGaps.innerHTML = '';
-  recurringGaps.forEach((gap) => {
-    const badge = document.createElement('span');
-    badge.className = 'badge recovery-gap';
-    badge.textContent = `${gap.name} · ${gap.count}×`;
-    els.recoveryGaps.appendChild(badge);
-  });
-
-  els.recoveryList.innerHTML = '';
-  history.slice(0, 10).forEach((record) => {
-    const card = document.createElement('article');
-    card.className = 'recovery-card';
-
-    const head = document.createElement('div');
-    head.className = 'recovery-head';
-    const identity = document.createElement('div');
-    identity.className = 'recovery-identity';
-    const title = document.createElement('strong');
-    title.textContent =
-      [record.role, record.company].filter(Boolean).join(' · ') || 'Application outcome';
-    const date = document.createElement('span');
-    date.className = 'muted';
-    date.textContent = new Date(record.analyzedAt).toLocaleDateString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    identity.append(title, date);
-
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'recovery-remove';
-    remove.textContent = '×';
-    remove.title = 'Remove this rejection record';
-    remove.setAttribute('aria-label', `Remove ${title.textContent}`);
-    remove.addEventListener('click', async () => {
-      const result = await chrome.runtime.sendMessage({
-        type: 'REMOVE_REJECTION',
-        id: record.id,
-      });
-      if (result?.ok) {
-        renderRejections(result.history, result.recurringGaps);
-      } else {
-        showError(els.recoveryError, result?.error || 'Could not remove this record.');
-      }
-    });
-    head.append(identity, remove);
-
-    const reflection = document.createElement('p');
-    reflection.className = 'recovery-reflection';
-    reflection.textContent = record.reflection;
-    card.append(head, reflection);
-
-    if (record.skillGaps?.length) {
-      const gaps = document.createElement('div');
-      gaps.className = 'badge-row recovery-card-gaps';
-      record.skillGaps.forEach((gap) => {
-        const badge = document.createElement('span');
-        badge.className = 'badge domain';
-        badge.textContent = gap.name;
-        badge.title = gap.reason || '';
-        gaps.appendChild(badge);
-      });
-      card.appendChild(gaps);
-    }
-
-    const next = document.createElement('p');
-    next.className = 'recovery-next';
-    const label = document.createElement('strong');
-    label.textContent = 'One next step: ';
-    next.append(label, document.createTextNode(record.nextStep || 'Record the outcome and close the loop.'));
-    card.appendChild(next);
-    els.recoveryList.appendChild(card);
-  });
-}
-
-async function refreshRejections() {
-  showError(els.recoveryError, '');
-  const result = await chrome.runtime.sendMessage({ type: 'GET_REJECTIONS' });
-  if (!result?.ok) {
-    showError(els.recoveryError, result?.error || 'Could not load rejection history.');
-    return;
-  }
-  renderRejections(result.history, result.recurringGaps);
 }
 
 async function addManualApplication() {
@@ -991,13 +893,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
     refreshPacing();
   }
   if (changes.applicationLog) renderApplications();
-  if (changes.rejectionHistory) refreshRejections();
 });
 
 (async function init() {
   await loadSettings();
   await refreshPacing();
   await renderApplications();
-  await refreshRejections();
   await scrapeActiveJob();
 })();

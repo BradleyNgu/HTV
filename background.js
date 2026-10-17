@@ -3,11 +3,6 @@
  * application sessions, and workday shutdown state.
  */
 
-import {
-  analyzeRejectionEmail,
-  recurringRejectionGaps,
-} from './services/rejectionRecovery.js';
-
 const DEFAULTS = {
   dailyAppCap: 4,
   appsSubmittedToday: 0,
@@ -16,7 +11,6 @@ const DEFAULTS = {
   userSkills: [],
   skillProfile: [],
   resumeName: '',
-  rejectionHistory: [],
   applicationLog: [],
   currentSessionJobs: [],
   parsedSkillsByUrl: {},
@@ -96,7 +90,11 @@ async function ensureDailyReset() {
   if (data.apiKey == null) updates.apiKey = DEFAULTS.apiKey;
   if (data.userSkills == null) updates.userSkills = DEFAULTS.userSkills;
   if (data.skillProfile == null) updates.skillProfile = DEFAULTS.skillProfile;
-  if (data.rejectionHistory == null) updates.rejectionHistory = DEFAULTS.rejectionHistory;
+  // Left over from the removed rejection-recovery feature; it held analyzed email outcomes.
+  if (data.rejectionHistory != null) {
+    await chrome.storage.local.remove('rejectionHistory');
+    delete data.rejectionHistory;
+  }
   if (data.applicationLog == null) updates.applicationLog = DEFAULTS.applicationLog;
   if (data.currentSessionJobs == null) updates.currentSessionJobs = DEFAULTS.currentSessionJobs;
   if (data.parsedSkillsByUrl == null) updates.parsedSkillsByUrl = DEFAULTS.parsedSkillsByUrl;
@@ -339,89 +337,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({
             ok: true,
             ...pacingState({ ...state, shutdownCompletedDate: date }),
-          });
-          break;
-        }
-        case 'ANALYZE_REJECTION': {
-          const state = await ensureDailyReset();
-          const email = message.email || {};
-          const sourceKey = String(email.sourceKey || '').trim().slice(0, 500);
-          if (!sourceKey || !String(email.body || '').trim()) {
-            sendResponse({ ok: false, error: 'The open Gmail message could not be read.' });
-            break;
-          }
-
-          const history = state.rejectionHistory || [];
-          const duplicate = history.find((record) => record.sourceKey === sourceKey);
-          if (duplicate) {
-            sendResponse({
-              ok: true,
-              duplicate: true,
-              record: duplicate,
-              recurringGaps: recurringRejectionGaps(history),
-            });
-            break;
-          }
-
-          const analysis = await analyzeRejectionEmail(email, state.skillProfile || [], {
-            apiKey: cleanApiKey(state.apiKey),
-          });
-          if (!analysis.isRejection) {
-            sendResponse({
-              ok: true,
-              notRejection: true,
-              record: {
-                ...analysis,
-                reflection:
-                  analysis.reflection || 'Gemini did not identify this as a rejection email.',
-              },
-            });
-            break;
-          }
-
-          const record = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            sourceKey,
-            analyzedAt: Date.now(),
-            company: analysis.company,
-            role: analysis.role,
-            confidencePercent: analysis.confidencePercent,
-            reflection: analysis.reflection,
-            skillGaps: analysis.skillGaps,
-            nextStep: analysis.nextStep,
-          };
-          const nextHistory = [record, ...history].slice(0, 100);
-          await chrome.storage.local.set({ rejectionHistory: nextHistory });
-          sendResponse({
-            ok: true,
-            record,
-            recurringGaps: recurringRejectionGaps(nextHistory),
-          });
-          break;
-        }
-        case 'GET_REJECTIONS': {
-          const state = await ensureDailyReset();
-          const history = state.rejectionHistory || [];
-          sendResponse({
-            ok: true,
-            history,
-            recurringGaps: recurringRejectionGaps(history),
-          });
-          break;
-        }
-        case 'REMOVE_REJECTION': {
-          const state = await ensureDailyReset();
-          const history = state.rejectionHistory || [];
-          const nextHistory = history.filter((record) => record.id !== message.id);
-          if (nextHistory.length === history.length) {
-            sendResponse({ ok: false, error: 'Rejection record not found.' });
-            break;
-          }
-          await chrome.storage.local.set({ rejectionHistory: nextHistory });
-          sendResponse({
-            ok: true,
-            history: nextHistory,
-            recurringGaps: recurringRejectionGaps(nextHistory),
           });
           break;
         }
