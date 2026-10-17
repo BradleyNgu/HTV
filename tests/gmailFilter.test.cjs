@@ -91,7 +91,33 @@ const differentCandidate = makeRow(
   'Application result',
   'Unfortunately, we have decided to pursue a different candidate.'
 );
-const rows = [rejection, interview, genericUpdate, notSelected, differentCandidate];
+const furtherConsideration = makeRow(
+  'AMD application',
+  "Unfortunately, you weren't selected for further consideration."
+);
+const noFit = makeRow(
+  'Application review',
+  "Unfortunately, our team didn't find a fit at this time."
+);
+const unableToProcess = makeRow(
+  'Update on your application',
+  'Unfortunately, we were not able to process your application at this time.'
+);
+const unrelatedUnfortunately = makeRow(
+  'Travel insurance claim',
+  'While falling ill is never part of the plan, it can unfortunately happen.'
+);
+const rows = [
+  rejection,
+  interview,
+  genericUpdate,
+  notSelected,
+  differentCandidate,
+  furtherConsideration,
+  noFit,
+  unableToProcess,
+  unrelatedUnfortunately,
+];
 const document = {
   documentElement: new FakeElement(),
   querySelectorAll() {
@@ -121,6 +147,13 @@ assert.equal(interview.classList.contains('sjsc-rejection-email-hidden'), false)
 assert.equal(genericUpdate.classList.contains('sjsc-rejection-email-hidden'), true);
 assert.equal(notSelected.classList.contains('sjsc-rejection-email-hidden'), true);
 assert.equal(differentCandidate.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(furtherConsideration.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(noFit.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(unableToProcess.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(
+  unrelatedUnfortunately.classList.contains('sjsc-rejection-email-hidden'),
+  false
+);
 
 const cover = rejection.querySelector('.sjsc-rejection-email-cover');
 assert.ok(cover);
