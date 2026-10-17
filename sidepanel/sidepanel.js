@@ -39,7 +39,9 @@ const els = {
   shutdownAdviceLoading: document.getElementById('shutdown-advice-loading'),
   shutdownAdviceContent: document.getElementById('shutdown-advice-content'),
   shutdownSummary: document.getElementById('shutdown-summary'),
-  shutdownStrategy: document.getElementById('shutdown-strategy'),
+  shutdownTheme: document.getElementById('shutdown-theme'),
+  shutdownPlan: document.getElementById('shutdown-plan'),
+  shutdownStop: document.getElementById('shutdown-stop'),
   shutdownStatus: document.getElementById('shutdown-status'),
   btnCompleteShutdown: document.getElementById('btn-complete-shutdown'),
   btnCloseShutdown: document.getElementById('btn-close-shutdown'),
@@ -409,24 +411,83 @@ const SHUTDOWN_ADVICE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     congratulatorySummary: { type: 'STRING' },
-    strategicAdvice: { type: 'STRING' },
+    focusTheme: { type: 'STRING' },
+    plan: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          minutes: { type: 'INTEGER' },
+          title: { type: 'STRING' },
+          why: { type: 'STRING' },
+          how: { type: 'STRING' },
+        },
+        required: ['minutes', 'title', 'why', 'how'],
+      },
+    },
+    stopRule: { type: 'STRING' },
   },
-  required: ['congratulatorySummary', 'strategicAdvice'],
+  required: ['congratulatorySummary', 'focusTheme', 'plan', 'stopRule'],
 };
 
 function fallbackShutdownAdvice(sessionJobs, uniqueSkills) {
   const count = sessionJobs.length;
   const focus = uniqueSkills.slice(0, 3);
   const focusText = focus.length ? focus.join(', ') : 'the roles you selected';
-  const review = uniqueSkills.slice(0, 2);
+  const first = uniqueSkills[0] || 'one core requirement from today\'s postings';
+  const second = uniqueSkills[1] || 'a second skill that showed up more than once';
   return {
     congratulatorySummary:
       count > 0
         ? `You moved ${count} focused application${count === 1 ? '' : 's'} forward today and protected a clear boundary around the work. Your session concentrated on ${focusText}.`
         : 'You chose to close the workday intentionally and protect your energy for tomorrow.',
-    strategicAdvice: review.length
-      ? `Tomorrow, spend one short review block on ${review.join(' and ')}. Stop after the planned block so preparation supports your interviews without becoming another endless task.`
-      : 'Tomorrow, review one recurring requirement from your target roles for a single focused block, then step away.',
+    focusTheme: `A 75-minute review of ${first} and ${second}, then stop.`,
+    plan: [
+      {
+        minutes: 25,
+        title: `Review ${first}`,
+        why: 'This showed up in today\'s applications, so a short refresh is more useful than starting a new topic.',
+        how: 'Read one concise explanation, then write three interview talking points from memory.',
+      },
+      {
+        minutes: 25,
+        title: `Practice ${second}`,
+        why: 'A second pass on a repeated skill beats spreading attention across the whole stack.',
+        how: 'Work one small example or sketch, then note the trade-off you would explain in a screen.',
+      },
+      {
+        minutes: 15,
+        title: 'Connect one resume point to tomorrow\'s likely questions',
+        why: 'Interviewers ask for proof, not a recap of the job description.',
+        how: 'Pick one project bullet and write Situation, Task, Action, and Result in four short lines.',
+      },
+      {
+        minutes: 10,
+        title: 'Close the loop',
+        why: 'A written stop time keeps preparation from turning into another workday.',
+        how: 'Save notes, set the next review date, and leave the job boards closed.',
+      },
+    ],
+    stopRule: 'When the 75 minutes are done, stop even if the notes feel unfinished. Rest is part of the plan.',
+  };
+}
+
+function cleanShutdownAdvice(raw, fallback) {
+  const plan = (Array.isArray(raw?.plan) ? raw.plan : [])
+    .map((block) => ({
+      minutes: Math.max(5, Math.min(40, Number(block?.minutes) || 20)),
+      title: String(block?.title || '').trim().slice(0, 80),
+      why: String(block?.why || '').trim().slice(0, 220),
+      how: String(block?.how || '').trim().slice(0, 220),
+    }))
+    .filter((block) => block.title && block.why && block.how)
+    .slice(0, 4);
+  if (plan.length < 3) return fallback;
+  return {
+    congratulatorySummary: String(raw?.congratulatorySummary || fallback.congratulatorySummary).trim(),
+    focusTheme: String(raw?.focusTheme || fallback.focusTheme).trim(),
+    plan,
+    stopRule: String(raw?.stopRule || fallback.stopRule).trim(),
   };
 }
 
@@ -440,7 +501,7 @@ function withTimeout(promise, timeoutMs) {
 
 /**
  * Structured, non-chatbot Gemini output for the shutdown card.
- * Always resolves to the same two-field shape; failures use a local fallback.
+ * Always resolves to summary + time-boxed plan; failures use a local fallback.
  */
 async function generateTailoredAdvice(sessionJobs, uniqueSkills) {
   const fallback = fallbackShutdownAdvice(sessionJobs, uniqueSkills);
@@ -452,7 +513,7 @@ async function generateTailoredAdvice(sessionJobs, uniqueSkills) {
         `${job.title || 'Untitled role'} at ${job.company || 'Unknown company'}; skills: ${(job.parsedSkills || []).join(', ') || 'none extracted'}`
     )
     .join('\n');
-  const prompt = `You create a concise end-of-day strategy for a job seeker. Return ONLY strict JSON matching the schema.
+  const prompt = `You create a bounded next-day interview prep plan for a job seeker who just hit their daily application cap. Return ONLY strict JSON matching the schema.
 
 Applications completed today:
 ${roles}
@@ -461,11 +522,12 @@ Unique technical skills encountered:
 ${uniqueSkills.join(', ') || 'none extracted'}
 
 Rules:
-- congratulatorySummary: 1 sentence that celebrates focused progress and names the dominant role/domain pattern.
-- strategicAdvice: 1 or 2 sentences naming exactly 1 or 2 specific technical topics to review tomorrow for likely interview screens.
-- Do not prescribe more applications, hustle, networking, or a long study session.
-- Do not use markdown, lists, generic wellness advice, or conversational filler.
-- The total output should read as 2–3 short sentences.`;
+- congratulatorySummary: 1-2 sentences naming the role/domain pattern from today. No hustle language.
+- focusTheme: one line describing tomorrow's 60-90 minute theme, naming 1-2 technical topics drawn from today's skills.
+- plan: exactly 4 blocks. minutes must sum to 60-90. Each block needs title, why (tied to today's jobs), and how (one concrete action).
+- Block 1-2: technical review for likely screens. Block 3: connect one resume point to those topics. Block 4: close notes and stop.
+- stopRule: one sentence that forbids extra applications, extra hours, or opening the job board after the last block.
+- Do not invent tools or skills that were not listed. Do not prescribe more applications or networking.`;
 
   try {
     const advice = await withTimeout(
@@ -475,13 +537,9 @@ Rules:
         schema: SHUTDOWN_ADVICE_SCHEMA,
         temperature: 0.3,
       }),
-      8000
+      12000
     );
-    if (!advice?.congratulatorySummary || !advice?.strategicAdvice) return fallback;
-    return {
-      congratulatorySummary: String(advice.congratulatorySummary).trim(),
-      strategicAdvice: String(advice.strategicAdvice).trim(),
-    };
+    return cleanShutdownAdvice(advice, fallback);
   } catch {
     return fallback;
   }
@@ -547,8 +605,8 @@ async function renderShutdownAdvice(sessionJobs, uniqueSkills) {
   );
   const cached = (await chrome.storage.local.get(cacheKey))[cacheKey];
   let advice;
-  if (cached?.signature === signature && cached?.advice) {
-    advice = cached.advice;
+  if (cached?.signature === signature && cached?.advice?.plan?.length) {
+    advice = cleanShutdownAdvice(cached.advice, fallbackShutdownAdvice(sessionJobs, uniqueSkills));
   } else {
     advice = await generateTailoredAdvice(sessionJobs, uniqueSkills);
     await chrome.storage.local.set({
@@ -557,7 +615,28 @@ async function renderShutdownAdvice(sessionJobs, uniqueSkills) {
   }
 
   els.shutdownSummary.textContent = advice.congratulatorySummary;
-  els.shutdownStrategy.textContent = advice.strategicAdvice;
+  els.shutdownTheme.textContent = advice.focusTheme;
+  els.shutdownPlan.innerHTML = '';
+  advice.plan.forEach((block) => {
+    const item = document.createElement('li');
+    item.className = 'shutdown-plan-item';
+    const head = document.createElement('div');
+    head.className = 'shutdown-plan-head';
+    const title = document.createElement('strong');
+    title.textContent = block.title;
+    const mins = document.createElement('span');
+    mins.className = 'muted';
+    mins.textContent = `${block.minutes} min`;
+    head.append(title, mins);
+    const why = document.createElement('p');
+    why.textContent = block.why;
+    const how = document.createElement('p');
+    how.className = 'shutdown-plan-how';
+    how.textContent = block.how;
+    item.append(head, why, how);
+    els.shutdownPlan.appendChild(item);
+  });
+  els.shutdownStop.textContent = advice.stopRule;
   els.shutdownAdviceLoading.classList.add('hidden');
   els.shutdownAdviceContent.classList.remove('hidden');
 }

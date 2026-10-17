@@ -1214,8 +1214,46 @@ body.shutdown-open {
   font-weight: 650;
 }
 
-#shutdown-strategy {
+#shutdown-theme {
+  color: var(--li-blue-hover);
+  font-weight: 650;
+}
+
+.shutdown-plan {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shutdown-plan-item {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.shutdown-plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.shutdown-plan-how {
   color: #374151;
+}
+
+#shutdown-stop {
+  padding: 8px 10px;
+  border-left: 3px solid var(--ok);
+  border-radius: 0 6px 6px 0;
+  background: var(--ok-soft);
+  color: var(--ink);
 }
 
 .shutdown-complete {
