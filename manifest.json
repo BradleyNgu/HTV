@@ -11,7 +11,6 @@
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "https://api.openai.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "background": {

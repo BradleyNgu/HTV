@@ -20,7 +20,13 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | **AI parse** | Returns typed JSON (`tech`, `domain`, `seniority`, `responsibilities`) as badges—not chat |
 | **STAR match** | Ranks local project bank and surfaces top 2 Situation / Task / Action / Result cards |
 
-API key is optional (Settings gear). Without it, a local heuristic parser still fills the UI.
+## Gemini API key (local `.env`)
+
+1. Put your key in `.env`: `GEMINI_API_KEY=...`
+2. Run `npm run sync-env` (generates the gitignored `config.local.js`)
+3. Reload the extension in `chrome://extensions`
+
+Re-run `npm run sync-env` any time you change the key. Without a key, a local heuristic parser still fills the UI.
 
 ## Project layout
 
@@ -29,7 +35,8 @@ manifest.json
 background.js          # storage, badge, side panel, pacing
 content.js / content.css
 sidepanel/             # LinkedIn-inspired UI
-services/aiParser.js   # OpenAI / Gemini structured JSON
+services/aiParser.js   # Gemini structured JSON
+scripts/sync-env.js    # .env -> config.local.js
 services/starMatcher.js
 icons/
 ```

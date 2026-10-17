@@ -89,17 +89,7 @@
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
         </label>
-        <label class="label">
-          AI provider
-          <select id="setting-provider">
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Gemini</option>
-          </select>
-        </label>
-        <label class="label">
-          API key <span class="muted">(optional — heuristic parse works offline)</span>
-          <input type="password" id="setting-key" placeholder="sk-… or Gemini key" autocomplete="off" />
-        </label>
+        <p class="muted">Gemini key is read from your local <code>.env</code> (run <code>npm run sync-env</code>).</p>
         <div class="dialog-actions">
           <button type="submit" class="btn btn-primary" value="save">Save</button>
           <button type="button" class="btn btn-ghost" id="btn-close-settings">Cancel</button>

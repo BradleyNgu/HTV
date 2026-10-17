@@ -3,9 +3,10 @@
  * Uses OpenAI or Gemini with schema-enforced JSON responses.
  */
 
-// Model IDs are retired periodically — update here if an API returns a 404.
+import { GEMINI_API_KEY } from '../config.local.js';
+
+// Model IDs are retired periodically — update here if the API returns a 404.
 const GEMINI_MODEL = 'gemini-3.8-flash';
-const OPENAI_MODEL = 'gpt-4o-mini';
 
 export const PARSED_JOB_SCHEMA = {
   type: 'object',
@@ -111,42 +112,6 @@ function heuristicParse(job) {
   };
 }
 
-async function parseWithOpenAI(job, apiKey) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.1,
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'parsed_job',
-          strict: true,
-          schema: PARSED_JOB_SCHEMA,
-        },
-      },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(job) },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`OpenAI error ${res.status}: ${errText.slice(0, 180)}`);
-  }
-
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content;
-  if (!raw) throw new Error('Empty OpenAI response');
-  return { ...JSON.parse(raw), _source: 'openai' };
-}
-
 async function parseWithGemini(job, apiKey) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, {
@@ -194,24 +159,24 @@ async function parseWithGemini(job, apiKey) {
 
 /**
  * @param {object} job scraped job
- * @param {{ apiKey?: string, apiProvider?: string }} settings
  * @returns {Promise<object>} ParsedJob
  */
-export async function parseJob(job, settings = {}) {
-  const key = (settings.apiKey || '').trim();
-  const provider = settings.apiProvider || 'openai';
+export async function parseJob(job) {
+  const key = (GEMINI_API_KEY || '').trim();
 
   if (!job?.description) {
     throw new Error('No job description available to parse.');
   }
 
   if (!key) {
-    return heuristicParse(job);
+    const offline = heuristicParse(job);
+    offline._error = 'No Gemini key found. Add GEMINI_API_KEY to .env, run "npm run sync-env", then reload the extension.';
+    offline._source = 'heuristic';
+    return offline;
   }
 
   try {
-    if (provider === 'gemini') return await parseWithGemini(job, key);
-    return await parseWithOpenAI(job, key);
+    return await parseWithGemini(job, key);
   } catch (err) {
     const fallback = heuristicParse(job);
     fallback._error = err?.message || 'API parse failed';
