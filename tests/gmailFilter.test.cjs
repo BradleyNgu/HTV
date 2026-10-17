@@ -103,6 +103,18 @@ const unableToProcess = makeRow(
   'Update on your application',
   'Unfortunately, we were not able to process your application at this time.'
 );
+const movingForward = makeRow(
+  'Thanks for your interest',
+  'Unfortunately, the team will be moving forward with other candidates at this time.'
+);
+const movingAhead = makeRow(
+  'Thank you for your interest',
+  'Unfortunately, we have decided to move ahead with other candidates.'
+);
+const positionClosed = makeRow(
+  'Your application with Pinterest',
+  'The Software Engineer Intern position you applied for has been closed and we are no longer reviewing applications.'
+);
 const unrelatedUnfortunately = makeRow(
   'Travel insurance claim',
   'While falling ill is never part of the plan, it can unfortunately happen.'
@@ -116,6 +128,9 @@ const rows = [
   furtherConsideration,
   noFit,
   unableToProcess,
+  movingForward,
+  movingAhead,
+  positionClosed,
   unrelatedUnfortunately,
 ];
 const document = {
@@ -150,6 +165,9 @@ assert.equal(differentCandidate.classList.contains('sjsc-rejection-email-hidden'
 assert.equal(furtherConsideration.classList.contains('sjsc-rejection-email-hidden'), true);
 assert.equal(noFit.classList.contains('sjsc-rejection-email-hidden'), true);
 assert.equal(unableToProcess.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(movingForward.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(movingAhead.classList.contains('sjsc-rejection-email-hidden'), true);
+assert.equal(positionClosed.classList.contains('sjsc-rejection-email-hidden'), true);
 assert.equal(
   unrelatedUnfortunately.classList.contains('sjsc-rejection-email-hidden'),
   false
