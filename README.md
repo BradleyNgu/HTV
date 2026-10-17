@@ -22,8 +22,11 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | **Daily check-in** | 10-second mood + energy check-in. A rough day eases today's application cap (halved, rounded up) and keeps study load light. Never raises the cap above your own setting. 7-day trend included |
 | **Skills fit & paced plan** | Compares the job's required tech to the skills pulled from the resume PDF you drop into ⚙ settings (text is extracted on-device with pdf.js; with a Gemini key, Gemini describes each skill's category, proficiency, years, and how you used it; otherwise a keyword catalog groups skills and quotes the resume line that mentions each one). Uploading a new resume replaces the previous skills. The gap is computed locally; Gemini writes role-specific reasons and a weekly plan sized to your energy (3 / 5 / 7 hours per week) |
 | **Interview prep** | Practice prompts tied to your matched STAR stories, a calm-down checklist, and a 60-second box-breathing reset |
+| **Workday shutdown** | Opens at the daily cap (or from **Wrap Up Day**) with today’s roles, unique technical skills, structured Gemini advice for tomorrow, and a final LinkedIn Apply lock |
 
 All wellbeing data (check-ins, skills, stories) stays in `chrome.storage.local` on your device. The only network calls are to Gemini, and only when you add a key.
+
+Completed sessions are archived locally under `log_YYYY-MM-DD`; no external database is required.
 
 ## Gemini API key
 

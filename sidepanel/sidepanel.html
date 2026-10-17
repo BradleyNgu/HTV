@@ -37,7 +37,10 @@
       <p id="applied-empty" class="muted">
         Nothing yet. Applications you submit on LinkedIn are counted automatically.
       </p>
-      <button type="button" id="btn-add-manual" class="link-btn">Missed one? Add it</button>
+      <div class="pacing-actions">
+        <button type="button" id="btn-add-manual" class="link-btn">Missed one? Add it</button>
+        <button type="button" id="btn-wrap-up" class="btn btn-ghost">Wrap Up Day</button>
+      </div>
     </section>
 
     <section class="checkin" aria-labelledby="checkin-heading">
@@ -164,6 +167,74 @@
         </div>
       </div>
     </section>
+
+    <div
+      id="shutdown-overlay"
+      class="shutdown-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shutdown-title"
+    >
+      <div class="shutdown-shell">
+        <header class="shutdown-hero">
+          <button
+            type="button"
+            id="btn-close-shutdown"
+            class="shutdown-close"
+            aria-label="Close shutdown ritual"
+          >
+            ×
+          </button>
+          <span class="shutdown-check" aria-hidden="true">✓</span>
+          <p class="shutdown-kicker">Workday complete</p>
+          <h2 id="shutdown-title">Daily Boundary Reached!</h2>
+          <p>Time to protect your energy. Today’s focused work is enough.</p>
+        </header>
+
+        <main class="shutdown-content">
+          <section class="shutdown-card" aria-labelledby="shutdown-roles-title">
+            <div class="shutdown-card-head">
+              <h3 id="shutdown-roles-title">Roles you moved forward</h3>
+              <span id="shutdown-role-count" class="shutdown-count">0</span>
+            </div>
+            <ul id="shutdown-role-list" class="shutdown-role-list"></ul>
+            <p id="shutdown-role-empty" class="muted hidden">
+              No applications are recorded in today’s session yet.
+            </p>
+          </section>
+
+          <section class="shutdown-card" aria-labelledby="shutdown-skills-title">
+            <h3 id="shutdown-skills-title">Technical skills deposited</h3>
+            <p class="shutdown-card-copy">
+              The technologies you encountered today are signals for tomorrow’s preparation.
+            </p>
+            <div id="shutdown-skill-list" class="shutdown-skill-list"></div>
+            <p id="shutdown-skill-empty" class="muted hidden">
+              Parse applied jobs to collect technical skills here.
+            </p>
+          </section>
+
+          <section class="shutdown-card shutdown-advice" aria-labelledby="shutdown-advice-title">
+            <div class="shutdown-card-head">
+              <h3 id="shutdown-advice-title">Tomorrow’s strategic focus</h3>
+              <span class="ai-label">Gemini</span>
+            </div>
+            <div id="shutdown-advice-loading" class="shutdown-loading" role="status">
+              Preparing a focused review plan…
+            </div>
+            <div id="shutdown-advice-content" class="hidden">
+              <p id="shutdown-summary"></p>
+              <p id="shutdown-strategy"></p>
+            </div>
+          </section>
+
+          <button type="button" id="btn-complete-shutdown" class="btn shutdown-complete">
+            Complete Workday Shutdown
+          </button>
+          <p id="shutdown-status" class="shutdown-status hidden" role="status"></p>
+        </main>
+      </div>
+    </div>
 
     <dialog id="settings-dialog" class="dialog">
       <form method="dialog" id="settings-form" class="dialog-body">
