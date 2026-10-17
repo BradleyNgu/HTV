@@ -2,11 +2,17 @@ import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
 import { extractSkillsFromPdf, SKILL_CATEGORIES } from '../services/resumeSkills.js';
 import { callGeminiJson } from '../services/gemini.js';
-import { initWellbeing, localDateKey } from './wellbeing.js';
+import { initBreathing } from './breathing.js';
 import { initCareerTools } from './careerTools.js';
 
+function localDateKey(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const els = {
-  pacingNote: document.getElementById('pacing-note'),
   starMethod: document.getElementById('star-method'),
   resumeDrop: document.getElementById('resume-drop'),
   resumeDropText: document.getElementById('resume-drop-text'),
@@ -95,12 +101,7 @@ function renderBadges(container, items, className = '') {
   });
 }
 
-function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap, adjusted, baseCap }) {
-  els.pacingNote.textContent = adjusted
-    ? `Cap eased from ${baseCap} to ${dailyAppCap} after today's check-in.`
-    : '';
-  els.pacingNote.classList.toggle('hidden', !adjusted);
-
+function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap }) {
   const used = appsSubmittedToday ?? 0;
   const cap = dailyAppCap ?? 4;
   const pct = Math.min(100, Math.round((used / Math.max(cap, 1)) * 100));
@@ -116,7 +117,13 @@ function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap, adjusted, base
   els.pacingBadge.classList.toggle('status-ok', !atCap);
   els.pacingBadge.classList.toggle('status-cap', Boolean(atCap));
 
-  if (atCap) maybeOpenShutdown();
+  if (atCap) {
+    maybeOpenShutdown();
+  } else {
+    // If the user raises the cap and later reaches the new boundary, the
+    // shutdown ritual should be eligible to open again.
+    shutdownAutoShownDate = '';
+  }
 }
 
 async function refreshPacing() {
@@ -850,7 +857,7 @@ els.settingsForm.addEventListener('submit', async (e) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes.appsSubmittedToday || changes.dailyAppCap || changes.checkIns) {
+  if (changes.appsSubmittedToday || changes.dailyAppCap) {
     refreshPacing();
   }
   if (changes.applicationLog) renderApplications();
@@ -860,11 +867,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   await loadSettings();
   await refreshPacing();
   await renderApplications();
-  await initWellbeing({
-    onSaved: async (pacing) => {
-      updatePacingUI(pacing);
-      await notifyContentScript(pacing.atCap);
-    },
-  });
+  initBreathing();
   await scrapeActiveJob();
 })();

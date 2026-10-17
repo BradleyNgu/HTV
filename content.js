@@ -705,14 +705,9 @@
     }
     const used = Number(state?.appsSubmittedToday);
     const cap = Number(state?.dailyAppCap);
-    const base = Number(state?.baseCap);
     const hasCounts = Number.isFinite(used) && Number.isFinite(cap);
-    const adjustment =
-      state?.adjusted && Number.isFinite(base)
-        ? ` Wellbeing adjusted the cap from ${base} to ${cap}.`
-        : '';
     return hasCounts
-      ? `Application paused: ${used} of ${cap} used.${adjustment}`
+      ? `Application paused: ${used} of ${cap} used.`
       : 'Application paused because today’s cap is reached.';
   }
 
@@ -791,7 +786,7 @@
     }
     if (message?.type === 'PACING_UPDATED') {
       // Apply the panel's update immediately, then reconcile with storage in
-      // case another application/check-in update raced this message.
+      // case another application update raced this message.
       const immediateState = {
         ...(lastPacingState || {}),
         atCap: Boolean(message.atCap),
@@ -839,14 +834,13 @@
     }).observe(document.body, { childList: true, subtree: true });
   }
 
-  // Apply/check-in/settings changes should update LinkedIn immediately rather
+  // Application/settings changes should update LinkedIn immediately rather
   // than waiting for the 30-second fallback poll.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (
       area === 'local' &&
       (changes.appsSubmittedToday ||
         changes.dailyAppCap ||
-        changes.checkIns ||
         changes.shutdownCompletedDate)
     ) {
       syncPacing();

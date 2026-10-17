@@ -30,8 +30,8 @@
     },
     {
       "matches": ["https://www.linkedin.com/*"],
-      "js": ["feed-filter.js"],
-      "css": ["feed-filter.css"],
+      "js": ["feedBlocker.js"],
+      "css": ["feedBlocker.css"],
       "run_at": "document_idle"
     }
   ],

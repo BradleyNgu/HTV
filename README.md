@@ -16,8 +16,8 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | Area | Behavior |
 |------|----------|
 | **Pacing** | Counts applications automatically as you apply on LinkedIn (no button to press) against a daily cap (default 4). Resets at local midnight; locks the Apply button at the cap. Each job counts once. Counted applications are listed in the panel, and a wrong one can be removed with × |
-| **Focused Home feed** | Collapses first-person “joining/starting a new role” announcements on LinkedIn Home. Each filtered item has a **Show post** override |
 | **Scraper** | Extracts title, company, description, URL from LinkedIn job DOM (with fallback selectors) |
+| **Feed focus filter** | Covers LinkedIn home-feed posts announcing that someone is joining a company. Matching posts show a “This is blocked” overlay with an optional **Show anyway** escape hatch |
 | **AI parse** | Returns typed JSON (`tech`, `domain`, `seniority`, `responsibilities`) as badges—not chat |
 | **STAR match** | Ranks local project bank (Gemini embeddings when a key is set, keyword overlap otherwise) and surfaces top 2 Situation / Task / Action / Result cards |
 | **Skills fit & paced plan** | Compares the job's required tech to the skills pulled from the resume PDF you drop into ⚙ settings (text is extracted on-device with pdf.js; with a Gemini key, Gemini describes each skill's category, proficiency, years, and how you used it; otherwise a keyword catalog groups skills and quotes the resume line that mentions each one). Uploading a new resume replaces the previous skills. The gap is computed locally; Gemini writes role-specific reasons and a sustainable 5-hour weekly plan |

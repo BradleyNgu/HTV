@@ -1,0 +1,78 @@
+/* Opaque cover for LinkedIn career-announcement posts. */
+
+.sjsc-career-post-blocked {
+  position: relative !important;
+  min-height: 190px;
+  overflow: hidden !important;
+}
+
+.sjsc-career-block-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2147483645;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  padding: 28px;
+  border: 1px solid #e0e0e0;
+  border-radius: inherit;
+  background: #f3f2ef;
+  color: #191919;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.sjsc-career-block-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 9px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #047857;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sjsc-career-block-overlay strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sjsc-career-block-overlay p {
+  max-width: 360px;
+  margin: 6px 0 13px;
+  color: #666666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sjsc-career-block-reveal {
+  padding: 6px 14px;
+  border: 1px solid #0a66c2;
+  border-radius: 999px;
+  background: transparent;
+  color: #0a66c2;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.sjsc-career-block-reveal:hover,
+.sjsc-career-block-reveal:focus-visible {
+  background: #e8f0fe;
+  outline: 2px solid #0a66c2;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sjsc-career-block-overlay,
+  .sjsc-career-block-reveal {
+    transition: none;
+  }
+}

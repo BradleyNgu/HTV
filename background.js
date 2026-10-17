@@ -1,6 +1,6 @@
 /**
  * Service worker: storage init, side panel, daily pacing, badge,
- * wellbeing check-ins that adapt the daily application cap.
+ * application sessions, and workday shutdown state.
  */
 
 const DEFAULTS = {
@@ -11,7 +11,6 @@ const DEFAULTS = {
   userSkills: [],
   skillProfile: [],
   resumeName: '',
-  checkIns: [],
   applicationLog: [],
   currentSessionJobs: [],
   parsedSkillsByUrl: {},
@@ -58,30 +57,15 @@ function todayKey(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * A low-energy / low-mood check-in eases the cap to half (rounded up, min 1).
- * Check-ins never raise the cap above the user's own setting.
- */
-function effectiveCap(baseCap, checkIn) {
-  if (!checkIn) return baseCap;
-  const score = (checkIn.mood + checkIn.energy) / 2;
-  return score < 2.5 ? Math.max(1, Math.ceil(baseCap / 2)) : baseCap;
-}
-
 function pacingState(state) {
-  const baseCap = state.dailyAppCap ?? DEFAULTS.dailyAppCap;
+  const cap = state.dailyAppCap ?? DEFAULTS.dailyAppCap;
   const used = state.appsSubmittedToday ?? 0;
   const key = todayKey();
-  const checkIn = (state.checkIns || []).find((c) => c.date === key) || null;
-  const cap = effectiveCap(baseCap, checkIn);
   return {
     appsSubmittedToday: used,
     dailyAppCap: cap,
-    baseCap,
-    adjusted: cap < baseCap,
     atCap: used >= cap,
     shutdownLocked: state.shutdownCompletedDate === key,
-    checkIn,
   };
 }
 
@@ -105,7 +89,6 @@ async function ensureDailyReset() {
   if (data.projectBank == null) updates.projectBank = DEFAULTS.projectBank;
   if (data.apiKey == null) updates.apiKey = DEFAULTS.apiKey;
   if (data.userSkills == null) updates.userSkills = DEFAULTS.userSkills;
-  if (data.checkIns == null) updates.checkIns = DEFAULTS.checkIns;
   if (data.applicationLog == null) updates.applicationLog = DEFAULTS.applicationLog;
   if (data.currentSessionJobs == null) updates.currentSessionJobs = DEFAULTS.currentSessionJobs;
   if (data.parsedSkillsByUrl == null) updates.parsedSkillsByUrl = DEFAULTS.parsedSkillsByUrl;
@@ -172,6 +155,12 @@ function cleanSkills(list) {
   return out.slice(0, 60);
 }
 
+function cleanApiKey(value) {
+  return String(value || '')
+    .normalize('NFC')
+    .replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, '');
+}
+
 const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
 
 /** Profile entries: { name, category, level, years, evidence }. Deduped by name. */
@@ -211,7 +200,7 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes.appsSubmittedToday || changes.dailyAppCap || changes.checkIns) {
+  if (changes.appsSubmittedToday || changes.dailyAppCap) {
     updateBadge();
   }
 });
@@ -345,26 +334,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           });
           break;
         }
-        case 'SAVE_CHECKIN': {
-          const mood = Math.round(Number(message.mood));
-          const energy = Math.round(Number(message.energy));
-          const valid = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
-          if (!valid(mood) || !valid(energy)) {
-            sendResponse({ ok: false, error: 'Mood and energy must each be between 1 and 5.' });
-            break;
-          }
-          const state = await ensureDailyReset();
-          const today = todayKey();
-          const checkIns = (state.checkIns || [])
-            .filter((c) => c.date !== today)
-            .concat({ date: today, mood, energy, savedAt: Date.now() })
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-30);
-          await chrome.storage.local.set({ checkIns });
-          await updateBadge();
-          sendResponse({ ok: true, ...pacingState({ ...state, checkIns }) });
-          break;
-        }
         case 'GET_PROJECT_BANK': {
           const state = await ensureDailyReset();
           sendResponse({ ok: true, projectBank: state.projectBank || [] });
@@ -379,7 +348,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           const state = await ensureDailyReset();
           sendResponse({
             ok: true,
-            apiKey: state.apiKey || '',
+            apiKey: cleanApiKey(state.apiKey),
             dailyAppCap: state.dailyAppCap,
             userSkills: state.userSkills || [],
             skillProfile: state.skillProfile?.length
@@ -390,8 +359,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
         case 'SAVE_SETTINGS': {
+          const state = await ensureDailyReset();
           const payload = {};
-          if (message.apiKey != null) payload.apiKey = message.apiKey;
+          if (message.apiKey != null) payload.apiKey = cleanApiKey(message.apiKey);
           if (message.skillProfile != null) {
             payload.skillProfile = cleanProfile(message.skillProfile);
             payload.userSkills = payload.skillProfile.map((s) => s.name);
@@ -401,10 +371,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           if (message.resumeName != null) payload.resumeName = String(message.resumeName).slice(0, 120);
           if (message.dailyAppCap != null) {
             payload.dailyAppCap = Math.max(1, Number(message.dailyAppCap) || DEFAULTS.dailyAppCap);
+            const capWasRaised = payload.dailyAppCap > state.dailyAppCap;
+            const reopened = pacingState({
+              ...state,
+              dailyAppCap: payload.dailyAppCap,
+              shutdownCompletedDate: '',
+            });
+            // Raising the cap is an explicit decision to resume. Clear a
+            // completed shutdown only when the new effective cap has room.
+            if (capWasRaised && state.appsSubmittedToday < reopened.dailyAppCap) {
+              payload.shutdownCompletedDate = '';
+            }
           }
           await chrome.storage.local.set(payload);
           await updateBadge();
-          sendResponse({ ok: true });
+          sendResponse({
+            ok: true,
+            ...pacingState({ ...state, ...payload }),
+            shutdownReopened: payload.shutdownCompletedDate === '',
+          });
           break;
         }
         default:
