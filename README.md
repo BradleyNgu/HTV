@@ -21,7 +21,7 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 | **AI parse** | Returns typed JSON (`tech`, `domain`, `seniority`, `responsibilities`) as badges—not chat |
 | **STAR match** | Ranks local project bank (Gemini embeddings when a key is set, keyword overlap otherwise) and surfaces top 2 Situation / Task / Action / Result cards |
 | **Skills fit & paced plan** | Compares the job's required tech to the skills pulled from the resume PDF you drop into ⚙ settings (text is extracted on-device with pdf.js; with a Gemini key, Gemini describes each skill's category, proficiency, years, and how you used it; otherwise a keyword catalog groups skills and quotes the resume line that mentions each one). Uploading a new resume replaces the previous skills. The gap is computed locally; Gemini writes role-specific reasons and a sustainable 5-hour weekly plan |
-| **Interview prep** | Practice prompts tied to your matched STAR stories, a calm-down checklist, and a 60-second box-breathing reset |
+| **Interview prep** | Practice prompts tied to your matched STAR stories |
 | **Gmail rejection recovery** | Adds an **Analyze rejection** button only when a Gmail message is open. A click sends that one email plus the locally saved resume skill profile to Gemini, logs a neutral reflection and one small next step, and highlights evidence-based gaps that recur across outcomes |
 | **Workday shutdown** | Opens at the daily cap (or from **Wrap Up Day**) with today’s roles, unique technical skills, structured Gemini advice for tomorrow, and a final LinkedIn Apply lock |
 
@@ -48,7 +48,6 @@ services/skillsGap.js  # skills gap + paced learning plan
 services/resumeSkills.js # resume PDF → skills list
 lib/pdfjs/             # vendored pdf.js (Apache-2.0)
 services/interviewPrep.js
-sidepanel/breathing.js # optional 60-second breathing reset
 sidepanel/careerTools.js # skills plan + interview prep UIservices/starMatcher.js
 icons/
 ```

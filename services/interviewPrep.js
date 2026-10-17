@@ -1,18 +1,9 @@
 /**
- * Interview anxiety prep: turns the parsed job + matched STAR stories into
- * practice prompts (each tied to a story you already have) and a calming
- * checklist. Structured output only — no chat.
+ * Interview prep: turns the parsed job + matched STAR stories into practice
+ * prompts, each tied to a story you already have. Structured output only — no chat.
  */
 
 import { callGeminiJson } from './gemini.js';
-
-export const CALM_CHECKLIST = [
-  'Eat and drink water at least an hour before — low blood sugar feels like anxiety.',
-  'Re-read your two STAR stories once. Not ten times.',
-  'Do the 60-second breathing reset right before you join.',
-  'Write one question you are genuinely curious about — it turns the interview into a conversation.',
-  'If you blank, pause, sip water, and restart the sentence. One stumble rarely decides the outcome.',
-];
 
 const QUESTIONS_SCHEMA = {
   type: 'OBJECT',

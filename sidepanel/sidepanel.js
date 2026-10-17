@@ -2,7 +2,6 @@ import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
 import { extractSkillsFromPdf, SKILL_CATEGORIES } from '../services/resumeSkills.js';
 import { callGeminiJson } from '../services/gemini.js';
-import { initBreathing } from './breathing.js';
 import { initCareerTools } from './careerTools.js';
 
 function localDateKey(d = new Date()) {
@@ -1000,6 +999,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
   await refreshPacing();
   await renderApplications();
   await refreshRejections();
-  initBreathing();
   await scrapeActiveJob();
 })();

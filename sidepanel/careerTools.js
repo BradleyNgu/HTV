@@ -4,7 +4,7 @@
  */
 
 import { analyzeSkillsGap } from '../services/skillsGap.js';
-import { generatePracticePrompts, CALM_CHECKLIST } from '../services/interviewPrep.js';
+import { generatePracticePrompts } from '../services/interviewPrep.js';
 import { analyzeInterviewProcess } from '../services/interviewProcess.js';
 
 const $ = (id) => document.getElementById(id);
@@ -56,19 +56,6 @@ export function initCareerTools({ getContext }) {
     source: $('process-source'),
     error: $('process-error'),
   };
-
-  // Static calm-down checklist is available any time.
-  const calm = $('calm-list');
-  CALM_CHECKLIST.forEach((text, i) => {
-    const li = el('li', 'calm-item');
-    const box = el('input');
-    box.type = 'checkbox';
-    box.id = `calm-${i}`;
-    const label = el('label', '', text);
-    label.htmlFor = box.id;
-    li.append(box, label);
-    calm.appendChild(li);
-  });
 
   // ---- Skills gap ----------------------------------------------------------
   function renderGap(result) {
