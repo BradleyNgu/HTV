@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Search Copilot</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1 class="brand-name">Job Search Copilot</h1>
+          <p class="brand-sub">Sustainable LinkedIn applications</p>
+        </div>
+      </div>
+      <button type="button" id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">
+        ⚙
+      </button>
+    </header>
+
+    <section class="pacing" aria-labelledby="pacing-heading">
+      <div class="pacing-row">
+        <h2 id="pacing-heading" class="section-title">Daily pacing</h2>
+        <span id="pacing-badge" class="status-pill status-ok">Ready</span>
+      </div>
+      <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0" id="pacing-meter">
+        <div class="meter-fill" id="pacing-fill"></div>
+      </div>
+      <p class="pacing-meta">
+        <span id="pacing-count">0</span> / <span id="pacing-cap">4</span> applications today
+      </p>
+      <button type="button" id="btn-log-apply" class="btn btn-primary">Log an application</button>
+    </section>
+
+    <section class="job-card" aria-labelledby="job-heading">
+      <div class="pacing-row">
+        <h2 id="job-heading" class="section-title">Active job</h2>
+        <button type="button" id="btn-scrape" class="btn btn-ghost">Refresh</button>
+      </div>
+      <div id="job-empty" class="empty-state">
+        Open a LinkedIn job posting, then refresh to pull title, company, and description.
+      </div>
+      <div id="job-content" class="hidden">
+        <h3 id="job-title" class="job-title"></h3>
+        <p id="job-company" class="job-company"></p>
+        <a id="job-url" class="job-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <button type="button" id="btn-parse" class="btn btn-primary btn-block">Parse requirements</button>
+      </div>
+      <p id="job-error" class="error-inline hidden" role="alert"></p>
+    </section>
+
+    <section class="parsed" aria-labelledby="parsed-heading">
+      <h2 id="parsed-heading" class="section-title">Parsed signals</h2>
+      <div id="parsed-empty" class="empty-state">Structured tech, domain, and seniority badges appear here after parsing.</div>
+      <div id="parsed-content" class="hidden">
+        <div class="field">
+          <span class="field-label">Seniority</span>
+          <div id="seniority-badges" class="badge-row"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Tech stack</span>
+          <div id="tech-badges" class="badge-row"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Domain</span>
+          <div id="domain-badges" class="badge-row"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Key responsibilities</span>
+          <ul id="resp-list" class="checklist"></ul>
+        </div>
+        <p id="parse-source" class="muted"></p>
+      </div>
+      <p id="parse-error" class="error-inline hidden" role="alert"></p>
+    </section>
+
+    <section class="star" aria-labelledby="star-heading">
+      <h2 id="star-heading" class="section-title">STAR story matches</h2>
+      <div id="star-empty" class="empty-state">Top matching project stories will show as Situation · Task · Action · Result cards.</div>
+      <div id="star-content" class="star-list"></div>
+    </section>
+
+    <dialog id="settings-dialog" class="dialog">
+      <form method="dialog" id="settings-form" class="dialog-body">
+        <h2 class="section-title">Settings</h2>
+        <label class="label">
+          Daily application cap
+          <input type="number" id="setting-cap" min="1" max="20" value="4" />
+        </label>
+        <label class="label">
+          AI provider
+          <select id="setting-provider">
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
+        <label class="label">
+          API key <span class="muted">(optional — heuristic parse works offline)</span>
+          <input type="password" id="setting-key" placeholder="sk-… or Gemini key" autocomplete="off" />
+        </label>
+        <div class="dialog-actions">
+          <button type="submit" class="btn btn-primary" value="save">Save</button>
+          <button type="button" class="btn btn-ghost" id="btn-close-settings">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>
