@@ -1,8 +1,0 @@
-{
-  "name": "sustainable-job-search-copilot",
-  "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "sync-env": "node scripts/sync-env.js"
-  }
-}

@@ -6,6 +6,7 @@ const DEFAULTS = {
   dailyAppCap: 4,
   appsSubmittedToday: 0,
   lastResetDate: null,
+  apiKey: '',
   projectBank: [
     {
       id: 'proj-telemetry',
@@ -50,12 +51,15 @@ async function ensureDailyReset() {
     'dailyAppCap',
     'lastResetDate',
     'projectBank',
+    'apiKey',
   ]);
 
   const updates = {};
   if (data.dailyAppCap == null) updates.dailyAppCap = DEFAULTS.dailyAppCap;
   if (data.appsSubmittedToday == null) updates.appsSubmittedToday = DEFAULTS.appsSubmittedToday;
   if (data.projectBank == null) updates.projectBank = DEFAULTS.projectBank;
+  if (data.apiKey == null) updates.apiKey = DEFAULTS.apiKey;
+
   const today = todayKey();
   if (data.lastResetDate !== today) {
     updates.appsSubmittedToday = 0;
@@ -151,12 +155,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           const state = await ensureDailyReset();
           sendResponse({
             ok: true,
+            apiKey: state.apiKey || '',
             dailyAppCap: state.dailyAppCap,
           });
           break;
         }
         case 'SAVE_SETTINGS': {
           const payload = {};
+          if (message.apiKey != null) payload.apiKey = message.apiKey;
           if (message.dailyAppCap != null) {
             payload.dailyAppCap = Math.max(1, Number(message.dailyAppCap) || DEFAULTS.dailyAppCap);
           }

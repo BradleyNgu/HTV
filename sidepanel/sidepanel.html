@@ -89,7 +89,10 @@
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
         </label>
-        <p class="muted">Gemini key is read from your local <code>.env</code> (run <code>npm run sync-env</code>).</p>
+        <label class="label">
+          Gemini API key <span class="muted">(optional — heuristic parse works offline)</span>
+          <input type="password" id="setting-key" placeholder="Gemini API key" autocomplete="off" />
+        </label>
         <div class="dialog-actions">
           <button type="submit" class="btn btn-primary" value="save">Save</button>
           <button type="button" class="btn btn-ghost" id="btn-close-settings">Cancel</button>

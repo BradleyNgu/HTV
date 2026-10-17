@@ -30,11 +30,12 @@ const els = {
   settingsDialog: document.getElementById('settings-dialog'),
   settingsForm: document.getElementById('settings-form'),
   settingCap: document.getElementById('setting-cap'),
+  settingKey: document.getElementById('setting-key'),
   btnCloseSettings: document.getElementById('btn-close-settings'),
 };
 
 let currentJob = null;
-let settings = { dailyAppCap: 4 };
+let settings = { apiKey: '', dailyAppCap: 4 };
 
 function showError(el, message) {
   if (!message) {
@@ -188,7 +189,7 @@ function renderParsed(parsed) {
 
   const sourceLabel = {
     gemini: 'Parsed via Gemini',
-    heuristic: 'Parsed offline (heuristic — Gemini key missing)',
+    heuristic: 'Parsed offline (heuristic — add a Gemini API key in settings for richer results)',
     'heuristic-fallback': 'API failed — showing heuristic fallback',
   };
   els.parseSource.textContent = sourceLabel[parsed._source] || 'Parsed';
@@ -247,7 +248,7 @@ async function runParseAndMatch() {
   els.btnParse.disabled = true;
   els.btnParse.textContent = 'Parsing…';
   try {
-    const parsed = await parseJob(currentJob);
+    const parsed = await parseJob(currentJob, settings);
     renderParsed(parsed);
 
     const bankRes = await chrome.runtime.sendMessage({ type: 'GET_PROJECT_BANK' });
@@ -279,8 +280,12 @@ async function logApplication() {
 async function loadSettings() {
   const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
   if (!res?.ok) return;
-  settings = { dailyAppCap: res.dailyAppCap ?? 4 };
+  settings = {
+    apiKey: res.apiKey || '',
+    dailyAppCap: res.dailyAppCap ?? 4,
+  };
   els.settingCap.value = settings.dailyAppCap;
+  els.settingKey.value = settings.apiKey;
 }
 
 els.btnScrape.addEventListener('click', scrapeActiveJob);
@@ -296,7 +301,10 @@ els.btnCloseSettings.addEventListener('click', () => els.settingsDialog.close())
 
 els.settingsForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  settings = { dailyAppCap: Number(els.settingCap.value) || 4 };
+  settings = {
+    dailyAppCap: Number(els.settingCap.value) || 4,
+    apiKey: els.settingKey.value.trim(),
+  };
   await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', ...settings });
   els.settingsDialog.close();
   await refreshPacing();

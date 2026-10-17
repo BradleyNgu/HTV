@@ -3,8 +3,6 @@
  * Uses OpenAI or Gemini with schema-enforced JSON responses.
  */
 
-import { GEMINI_API_KEY } from '../config.local.js';
-
 // Model IDs are retired periodically — update here if the API returns a 404.
 const GEMINI_MODEL = 'gemini-3.8-flash';
 
@@ -159,20 +157,18 @@ async function parseWithGemini(job, apiKey) {
 
 /**
  * @param {object} job scraped job
+ * @param {{ apiKey?: string }} settings
  * @returns {Promise<object>} ParsedJob
  */
-export async function parseJob(job) {
-  const key = (GEMINI_API_KEY || '').trim();
+export async function parseJob(job, settings = {}) {
+  const key = (settings.apiKey || '').trim();
 
   if (!job?.description) {
     throw new Error('No job description available to parse.');
   }
 
   if (!key) {
-    const offline = heuristicParse(job);
-    offline._error = 'No Gemini key found. Add GEMINI_API_KEY to .env, run "npm run sync-env", then reload the extension.';
-    offline._source = 'heuristic';
-    return offline;
+    return heuristicParse(job);
   }
 
   try {
