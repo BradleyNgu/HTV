@@ -81,6 +81,7 @@ const context = {
   location: { pathname: '/mail/u/0/', hash: '#inbox/thread-123' },
   chrome: {
     runtime: {
+      id: 'test-extension',
       async sendMessage(message) {
         sentMessage = message;
         return {

@@ -113,13 +113,23 @@
     button.disabled = true;
     button.textContent = 'Analyzing…';
     try {
+      if (!chrome.runtime?.id) {
+        throw new Error('Extension context invalidated.');
+      }
       const response = await chrome.runtime.sendMessage({
         type: 'ANALYZE_REJECTION',
         email,
       });
       showResult(response);
     } catch (err) {
-      showResult({ ok: false, error: err?.message || 'Extension analysis failed.' });
+      const invalidated =
+        !chrome.runtime?.id || /extension context invalidated/i.test(err?.message || '');
+      showResult({
+        ok: false,
+        error: invalidated
+          ? 'The extension was reloaded. Refresh this Gmail tab, reopen the email, then try again.'
+          : err?.message || 'Extension analysis failed.',
+      });
     } finally {
       button.disabled = false;
       button.textContent = 'Analyze rejection';
