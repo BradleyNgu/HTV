@@ -66,6 +66,7 @@ const els = {
   settingCap: document.getElementById('setting-cap'),
   settingKey: document.getElementById('setting-key'),
   btnCloseSettings: document.getElementById('btn-close-settings'),
+  btnSaveSettings: document.getElementById('btn-save-settings'),
 };
 
 let currentJob = null;
@@ -741,16 +742,37 @@ function setResumeStatus(message) {
   els.resumeStatus.classList.toggle('hidden', !message);
 }
 
+let resumeReading = false;
+
+/** While a resume is being read, the dialog can't be saved or closed. */
+function setResumeReading(reading, fileName = '') {
+  resumeReading = reading;
+  els.resumeDrop.classList.toggle('busy', reading);
+  els.resumeDrop.setAttribute('aria-busy', String(reading));
+  els.resumeDropText.textContent = reading ? `Reading ${fileName}…` : 'Drop your resume PDF here';
+  els.btnSaveSettings.disabled = reading;
+  els.btnCloseSettings.disabled = reading;
+  els.skillProfile.setAttribute('aria-busy', String(reading));
+
+  if (reading) {
+    els.skillProfile.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const row = document.createElement('div');
+      row.className = 'skill-row skill-skeleton';
+      row.innerHTML = '<span class="skeleton-line"></span><span class="skeleton-line short"></span>';
+      els.skillProfile.appendChild(row);
+    }
+  }
+}
+
 /** A new resume fully replaces the old skills and is saved immediately. */
 async function handleResumeFile(file) {
-  if (!file) return;
+  if (!file || resumeReading) return;
   showError(els.resumeError, '');
   setResumeStatus('');
   const previous = draftProfile;
   draftProfile = [];
-  renderSkillProfile();
-  els.resumeDrop.classList.add('busy');
-  els.resumeDropText.textContent = `Reading ${file.name}…`;
+  setResumeReading(true, file.name);
   try {
     const { profile, source, error } = await extractSkillsFromPdf(file, {
       apiKey: els.settingKey.value,
@@ -768,6 +790,7 @@ async function handleResumeFile(file) {
       resumeName: saved.resumeName || '',
     };
     draftProfile = settings.skillProfile.map((s) => ({ ...s }));
+    setResumeReading(false);
     renderSkillProfile();
 
     const via = {
@@ -778,11 +801,11 @@ async function handleResumeFile(file) {
     setResumeStatus(`Replaced your previous skills. ${via}.`);
   } catch (err) {
     draftProfile = previous;
+    setResumeReading(false);
     renderSkillProfile();
     showError(els.resumeError, `${err?.message || 'Could not read that PDF.'} Your previous skills were kept.`);
   } finally {
-    els.resumeDrop.classList.remove('busy');
-    els.resumeDropText.textContent = 'Drop your resume PDF here';
+    if (resumeReading) setResumeReading(false);
     els.resumeFile.value = '';
   }
 }
@@ -842,8 +865,18 @@ initResumeDrop();
 
 els.btnCloseSettings.addEventListener('click', () => els.settingsDialog.close());
 
+// Esc fires `cancel` on a modal dialog; keep it open until the resume is read.
+// Chrome force-closes on a repeated Esc unless the keydown itself is prevented.
+els.settingsDialog.addEventListener('cancel', (e) => {
+  if (resumeReading) e.preventDefault();
+});
+els.settingsDialog.addEventListener('keydown', (e) => {
+  if (resumeReading && e.key === 'Escape') e.preventDefault();
+});
+
 els.settingsForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (resumeReading) return;
   settings = {
     dailyAppCap: Number(els.settingCap.value) || 4,
     apiKey: els.settingKey.value.trim(),
