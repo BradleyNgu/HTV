@@ -3,6 +3,10 @@
  * Uses OpenAI or Gemini with schema-enforced JSON responses.
  */
 
+// Model IDs are retired periodically — update here if an API returns a 404.
+const GEMINI_MODEL = 'gemini-3.8-flash';
+const OPENAI_MODEL = 'gpt-4o-mini';
+
 export const PARSED_JOB_SCHEMA = {
   type: 'object',
   properties: {
@@ -115,7 +119,7 @@ async function parseWithOpenAI(job, apiKey) {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: OPENAI_MODEL,
       temperature: 0.1,
       response_format: {
         type: 'json_schema',
@@ -144,7 +148,7 @@ async function parseWithOpenAI(job, apiKey) {
 }
 
 async function parseWithGemini(job, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

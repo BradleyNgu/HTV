@@ -1,31 +1,32 @@
 /**
  * LinkedIn Jobs DOM scraper + apply-button pacing overlay.
- * Supports /jobs/search/* (split pane) and /jobs/view/* (standalone / guest).
+ * Supports /jobs/search/* (split pane) and /jobs/view/* (standalone).
+ * Does not require clicking "Show more" — uses textContent + meta/JSON-LD.
  */
 
 (function () {
   'use strict';
 
+  const TITLE_NOISE =
+    /^(?:(?:add this job|join or sign in|sign in|join now|use ai|match score|tailor your resume|see who|similar jobs).*|(?:linkedin|home|jobs|notifications|messaging|network|search|me|more|for business|advertise))$/i;
+
   const TITLE_SELECTORS = [
-    // Logged-in unified job details
+    '.job-details-jobs-unified-top-card__job-title h1 a',
     '.job-details-jobs-unified-top-card__job-title h1',
     '.job-details-jobs-unified-top-card__job-title a',
     '.job-details-jobs-unified-top-card__job-title',
+    '.jobs-unified-top-card__job-title h1 a',
     '.jobs-unified-top-card__job-title h1',
     '.jobs-unified-top-card__job-title a',
     '.jobs-unified-top-card__job-title',
+    'h1.t-24 a',
     'h1.t-24',
-    'h1.jobs-details-top-card__job-title',
     '.jobs-details-top-card__job-title',
     '[data-test-job-title]',
-    // Guest / public /jobs/view pages
     'h1.top-card-layout__title',
     '.top-card-layout__entity-info h1',
-    '.topcard__title',
     'h1.topcard__title',
-    '.job-view-layout h1',
-    'main h1',
-    'h1',
+    '.topcard__title',
   ];
 
   const COMPANY_SELECTORS = [
@@ -33,36 +34,35 @@
     '.job-details-jobs-unified-top-card__company-name',
     '.jobs-unified-top-card__company-name a',
     '.jobs-unified-top-card__company-name',
-    '.job-details-jobs-unified-top-card__primary-description-container a',
+    '.job-details-jobs-unified-top-card__primary-description-without-tagline a[href*="/company/"]',
+    '.job-details-jobs-unified-top-card__primary-description-container a[href*="/company/"]',
+    'a.job-details-jobs-unified-top-card__company-name',
     '.jobs-details-top-card__company-url',
     '[data-test-company-name]',
-    // Guest / public
-    '.topcard__org-name-link',
-    '.top-card-layout__card .topcard__flavor a',
     'a.topcard__org-name-link',
-    '.top-card-layout__entity-info a[href*="/company/"]',
+    '.topcard__org-name-link',
     'a[data-tracking-control-name="public_jobs_topcard-org-name"]',
-    '.job-details-jobs-unified-top-card__primary-description-without-tagline a',
+    '.top-card-layout__entity-info a[href*="/company/"]',
+    'a[href*="/company/"][data-tracking-control-name*="topcard"]',
   ];
 
   const DESCRIPTION_SELECTORS = [
-    // Logged-in
-    '#job-details',
-    '.jobs-description__content',
+    '.jobs-description__content .jobs-box__html-content',
     '.jobs-box__html-content',
-    '.jobs-description-content__text',
+    '#job-details .jobs-box__html-content',
+    '#job-details',
     '.jobs-description-content__text--stretch',
+    '.jobs-description-content__text',
+    '.jobs-description__content',
     'article.jobs-description__container',
     '.jobs-description',
-    '.job-view-layout .jobs-description',
-    // Guest / public /jobs/view
     '.show-more-less-html__markup',
-    '.description__text',
+    'div.show-more-less-html__markup',
+    '.description__text .show-more-less-html__markup',
     '.description__text--rich',
-    'section.description .show-more-less-html',
-    '.core-section-container__content .description__text',
-    'div[class*="show-more-less-html"]',
-    'article.jobs-description',
+    '.description__text',
+    'section.description',
+    '.core-section-container__content',
   ];
 
   const APPLY_BUTTON_SELECTORS = [
@@ -72,61 +72,68 @@
     'button[aria-label*="Apply" i]',
     '.jobs-s-apply button',
     '#jobs-apply-button-id',
-    'button.topcard__link',
-    'a.topcard__link',
   ];
 
   let lastUrl = location.href;
   let pacingAtCap = false;
 
-  function queryFirst(selectors, root = document) {
-    for (const sel of selectors) {
-      try {
-        const el = root.querySelector(sel);
-        if (el && textOf(el)) return el;
-      } catch {
-        /* invalid selector — skip */
-      }
-    }
-    return null;
+  /** Prefer textContent so collapsed "Show more" markup is still readable. */
+  function textOf(el, { visibleOnly = false } = {}) {
+    if (!el) return '';
+    const raw = visibleOnly ? el.innerText : el.textContent;
+    return (raw || '').replace(/\s+/g, ' ').trim();
   }
 
-  function queryFirstAny(selectors, root = document) {
-    for (const sel of selectors) {
-      try {
-        const el = root.querySelector(sel);
-        if (el) return el;
-      } catch {
-        /* skip */
-      }
-    }
-    return null;
+  function isNoiseTitle(t) {
+    if (!t || t.length < 3) return true;
+    if (TITLE_NOISE.test(t)) return true;
+    if (/match score|tailor your resume|sign in to/i.test(t)) return true;
+    return false;
   }
 
-  function textOf(el) {
-    return (el?.innerText || el?.textContent || '').replace(/\s+/g, ' ').trim();
+  function cleanTitle(raw) {
+    if (!raw) return '';
+    return raw.replace(/\s+with verification$/i, '').trim();
   }
 
-  function expandDescription() {
-    const buttons = document.querySelectorAll(
-      [
-        'button.show-more-less-html__button',
-        'button[aria-label*="more" i]',
-        'button.inline-show-more-text__button',
-        '.jobs-description__footer button',
-        'button[data-tracking-control-name*="show-more"]',
-      ].join(',')
+  function cleanCompany(raw) {
+    if (!raw) return '';
+    let c = raw
+      .replace(/\s*[·•|].*$/, '')
+      .replace(/\s+\d+\s*(followers|employees|applicants).*$/i, '')
+      .replace(/\s+Reposted.*$/i, '')
+      .trim();
+
+    // "SageSure Jersey City, NJ" → "SageSure"
+    const loc = c.match(
+      /^(.*?)\s+([A-Z][a-zA-Z.\s]+,\s*[A-Z]{2}(?:\s*[·•].*)?)$/
     );
-    buttons.forEach((btn) => {
-      const label = (btn.innerText || btn.getAttribute('aria-label') || '').toLowerCase();
-      if (label.includes('see more') || label.includes('show more') || label.includes('more')) {
-        try {
-          btn.click();
-        } catch {
-          /* ignore */
-        }
-      }
-    });
+    if (loc && loc[1] && loc[1].length < 80) c = loc[1].trim();
+
+    return c;
+  }
+
+  function parseHiringTitle(raw) {
+    const s = (raw || '').trim();
+    if (!s) return null;
+    // "SageSure hiring Software Engineer Intern in Jersey City, NJ | LinkedIn"
+    let m = s.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+?)?\s*\|\s*LinkedIn$/i);
+    if (m) return { company: m[1].trim(), title: m[2].trim() };
+    m = s.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+)?$/i);
+    if (m) return { company: m[1].trim(), title: m[2].trim() };
+    return null;
+  }
+
+  function parseMetaFallbacks() {
+    const ogTitle = document.querySelector('meta[property="og:title"]')?.content || '';
+    const ogDesc = document.querySelector('meta[property="og:description"]')?.content || '';
+    const docTitle = document.title || '';
+    const hiring = parseHiringTitle(ogTitle) || parseHiringTitle(docTitle);
+    return {
+      title: hiring?.title || '',
+      company: hiring?.company || '',
+      description: (ogDesc || '').trim(),
+    };
   }
 
   function parseJsonLdJob() {
@@ -151,7 +158,7 @@
           }
         }
       } catch {
-        /* bad json — skip */
+        /* skip */
       }
     }
     return null;
@@ -163,93 +170,343 @@
     return textOf(tmp);
   }
 
-  function parseMetaFallbacks() {
-    const ogTitle = document.querySelector('meta[property="og:title"]')?.content || '';
-    const ogDesc = document.querySelector('meta[property="og:description"]')?.content || '';
-    const docTitle = document.title || '';
+  /** LinkedIn sometimes embeds job JSON in inline scripts / code tags. */
+  function parseEmbeddedJobJson() {
+    const blobs = [];
+    document.querySelectorAll('code[id], script:not([src])').forEach((el) => {
+      const t = el.textContent || '';
+      if (t.length > 200 && /jobPosting|JobPosting|companyName|jobDescription/i.test(t)) {
+        blobs.push(t);
+      }
+    });
 
-    // e.g. "SageSure hiring Software Engineer Intern in Jersey City, NJ | LinkedIn"
-    let title = '';
-    let company = '';
-    const hiring = ogTitle.match(/^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+.+)?\s*\|\s*LinkedIn$/i);
-    if (hiring) {
-      company = hiring[1].trim();
-      title = hiring[2].trim();
-    } else if (docTitle.includes('|')) {
-      title = docTitle.split('|')[0].trim();
+    for (const blob of blobs) {
+      // Try to find a JobPosting-like object
+      const titleMatch = blob.match(/"title"\s*:\s*"((?:\\.|[^"\\]){3,200})"/);
+      const companyMatch =
+        blob.match(/"companyName"\s*:\s*"((?:\\.|[^"\\])+)"/) ||
+        blob.match(/"name"\s*:\s*"((?:\\.|[^"\\])+)"\s*,\s*"logo"/) ||
+        blob.match(/"hiringOrganization"[^}]*"name"\s*:\s*"((?:\\.|[^"\\])+)"/);
+      const descMatch =
+        blob.match(/"description"\s*:\s*"((?:\\.|[^"\\]){80,})"/) ||
+        blob.match(/"jobDescription"\s*:\s*"((?:\\.|[^"\\]){80,})"/);
+
+      const unesc = (s) => {
+        if (!s) return '';
+        try {
+          return JSON.parse(`"${s}"`);
+        } catch {
+          return s.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/<[^>]+>/g, ' ');
+        }
+      };
+
+      const title = unesc(titleMatch?.[1]);
+      const company = unesc(companyMatch?.[1]);
+      let description = unesc(descMatch?.[1]);
+      if (description.includes('<')) description = stripHtml(description);
+
+      if (title && !isNoiseTitle(title)) {
+        return {
+          title: cleanTitle(title),
+          company: cleanCompany(company),
+          description: description.replace(/\s+/g, ' ').trim(),
+        };
+      }
+    }
+    return null;
+  }
+
+  function queryFirstGoodTitle() {
+    for (const sel of TITLE_SELECTORS) {
+      try {
+        const nodes = document.querySelectorAll(sel);
+        for (const el of nodes) {
+          const t = cleanTitle(textOf(el));
+          if (t && !isNoiseTitle(t)) return t;
+        }
+      } catch {
+        /* skip */
+      }
+    }
+    return '';
+  }
+
+  function queryFirstCompany() {
+    // Prefer explicit company links
+    const companyLinks = document.querySelectorAll(
+      'a[href*="/company/"], a[href*="/school/"]'
+    );
+    for (const a of companyLinks) {
+      // Skip nav / footer noise
+      const href = a.getAttribute('href') || '';
+      if (/\/company\/linkedin/i.test(href)) continue;
+      const inTopCard = a.closest(
+        [
+          '.job-details-jobs-unified-top-card',
+          '.jobs-unified-top-card',
+          '.top-card-layout',
+          '.topcard',
+          '.jobs-details-top-card',
+          '.job-view-layout',
+        ].join(',')
+      );
+      const t = cleanCompany(textOf(a));
+      if (t && t.length > 1 && t.length < 80 && inTopCard) return t;
     }
 
-    return { title, company, description: (ogDesc || '').trim() };
+    for (const sel of COMPANY_SELECTORS) {
+      try {
+        const el = document.querySelector(sel);
+        const t = cleanCompany(textOf(el));
+        if (t && !TITLE_NOISE.test(t)) return t;
+      } catch {
+        /* skip */
+      }
+    }
+    return '';
   }
 
-  function cleanCompany(raw) {
-    if (!raw) return '';
-    // Guest cards sometimes glue "SageSure Jersey City, NJ"
-    return raw
-      .replace(/\s*[·•|].*$/, '')
-      .replace(/\s+\d+\s*(followers|employees).*$/i, '')
-      .trim();
-  }
-
-  function cleanTitle(raw) {
-    if (!raw) return '';
-    return raw.replace(/\s+with verification$/i, '').trim();
-  }
-
-  function longestText(selectors) {
+  function collectDescription() {
     let best = '';
-    for (const sel of selectors) {
+    for (const sel of DESCRIPTION_SELECTORS) {
       try {
         document.querySelectorAll(sel).forEach((el) => {
-          const t = textOf(el);
+          // Clone and strip scripts / show-more buttons for cleaner text
+          const clone = el.cloneNode(true);
+          clone
+            .querySelectorAll(
+              'button, script, style, .show-more-less-html__button, .artdeco-button'
+            )
+            .forEach((n) => n.remove());
+          const t = textOf(clone);
           if (t.length > best.length) best = t;
         });
       } catch {
         /* skip */
       }
     }
+
+    // Filter sign-in CTA blobs
+    if (best && /join or sign in to find your next job/i.test(best) && best.length < 400) {
+      return '';
+    }
     return best;
   }
 
+  // ---------------------------------------------------------------------------
+  // Layout-independent extraction (LinkedIn's new UI uses hashed class names).
+  // Anchors on stable visible text: "About the job" and the
+  // "Location · 1 month ago · N applicants" meta line under the title.
+  // ---------------------------------------------------------------------------
+
+  const DESC_START = /about the job/i;
+  const DESC_END_MARKERS = [
+    /set alert for similar jobs/i,
+    /about the company/i,
+    /unlock hiring insights/i,
+    /meet the hiring team/i,
+    /people you can reach out to/i,
+    /\bmore jobs\b/i,
+    /\u2026\s*more\b/i,
+    /\.\.\.\s*more\b/i,
+    /show more\s*show less/i,
+  ];
+  const META_LINE = /\u00b7|\u2022/;
+  const META_HINT = /(\bago\b|applicant|clicked apply|reposted|promoted|actively (hiring|reviewing)|be an early applicant)/i;
+
+  function pageLines() {
+    const root = document.querySelector('main') || document.body;
+    const raw = root?.innerText || document.body?.innerText || '';
+    return raw
+      .split(/\n+/)
+      .map((l) => l.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+  }
+
+  function dedupeRepeated(str) {
+    const s = (str || '').trim();
+    if (s.length > 6 && s.length % 2 === 0) {
+      const half = s.slice(0, s.length / 2).trim();
+      if (half && s === `${half}${half}`) return half;
+    }
+    const m = s.match(/^(.{3,}?)\s+\1$/);
+    return m ? m[1] : s;
+  }
+
+  function descriptionFromText() {
+    const root = document.querySelector('main') || document.body;
+    const full = root?.innerText || '';
+    if (!full) return '';
+
+    // Use the LAST "About the job" before any "About the company" (job pane).
+    const startMatch = full.match(DESC_START);
+    if (!startMatch) return '';
+    const startIdx = startMatch.index + startMatch[0].length;
+    const rest = full.slice(startIdx);
+
+    let endIdx = rest.length;
+    for (const rx of DESC_END_MARKERS) {
+      const m = rest.match(rx);
+      // Ignore early hits so tiny preambles don't truncate us
+      if (m && m.index > 150 && m.index < endIdx) endIdx = m.index;
+    }
+    return rest.slice(0, endIdx).replace(/\s+/g, ' ').trim();
+  }
+
+  function descriptionFromAnchor() {
+    // Find the heading element and climb to the smallest ancestor with real content
+    const candidates = document.querySelectorAll('h1,h2,h3,h4,h5,p,span,div,strong');
+    for (const el of candidates) {
+      if (el.children.length > 2) continue;
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/^about the job$/i.test(t)) continue;
+
+      let node = el;
+      for (let i = 0; i < 8 && node.parentElement; i += 1) {
+        node = node.parentElement;
+        const txt = textOf(node);
+        if (/about the company|set alert for similar jobs/i.test(txt) && i > 1) break;
+        if (txt.length > 400) {
+          return txt.replace(/^about the job\s*/i, '').trim();
+        }
+      }
+    }
+    return '';
+  }
+
+  function titleCompanyFromText() {
+    const lines = pageLines();
+    if (!lines.length) return { title: '', company: '' };
+
+    // Locate "About the job" and look backwards for the meta line
+    let aboutIdx = lines.findIndex((l) => /^about the job$/i.test(l));
+    if (aboutIdx < 0) aboutIdx = lines.length;
+
+    let metaIdx = -1;
+    for (let i = aboutIdx - 1; i >= 0; i -= 1) {
+      if (META_LINE.test(lines[i]) && META_HINT.test(lines[i])) {
+        metaIdx = i;
+        break;
+      }
+    }
+    if (metaIdx < 1) return { title: '', company: '' };
+
+    // Walk upward skipping badge-y lines to find title, then company
+    const skip = /^(apply|save|easy apply|hybrid|remote|on-site|full-time|part-time|contract|internship|promoted)$/i;
+    const pick = (from) => {
+      for (let i = from; i >= 0 && i > from - 6; i -= 1) {
+        const l = lines[i];
+        if (!l || skip.test(l) || isNoiseTitle(l) || META_LINE.test(l) && META_HINT.test(l)) continue;
+        return { value: l, index: i };
+      }
+      return null;
+    };
+
+    const t = pick(metaIdx - 1);
+    if (!t) return { title: '', company: '' };
+    const c = pick(t.index - 1);
+
+    return {
+      title: cleanTitle(dedupeRepeated(t.value)),
+      company: c ? cleanCompany(dedupeRepeated(c.value)) : '',
+    };
+  }
+
+  function companyFromLogoAlt() {
+    const imgs = document.querySelectorAll('img[alt]');
+    for (const img of imgs) {
+      const m = (img.getAttribute('alt') || '').match(/^company logo for,?\s*(.+?)\.?$/i);
+      if (m && m[1]) return cleanCompany(m[1]);
+    }
+    return '';
+  }
+
+  function parseDocumentTitle() {
+    // "(1) Software Engineer Intern | Hewlett Packard Enterprise | LinkedIn"
+    const raw = (document.title || '').replace(/^\(\d+\)\s*/, '').trim();
+    const hiring = parseHiringTitle(raw);
+    if (hiring) return hiring;
+
+    const parts = raw.split('|').map((p) => p.trim()).filter(Boolean);
+    if (parts.length && /^linkedin$/i.test(parts[parts.length - 1])) parts.pop();
+    if (parts.length >= 2 && !isNoiseTitle(parts[0])) {
+      return { title: parts[0], company: parts[1] };
+    }
+    return null;
+  }
+
   function scrapeJob() {
-    expandDescription();
-
     const jsonLd = parseJsonLdJob();
+    const embedded = parseEmbeddedJobJson();
     const meta = parseMetaFallbacks();
+    const docTitle = parseDocumentTitle();
+    const textTC = titleCompanyFromText();
+    const sources = { title: '', company: '', description: '' };
 
-    const titleEl = queryFirst(TITLE_SELECTORS);
-    const companyEl = queryFirst(COMPANY_SELECTORS);
-    const descEl = queryFirstAny(DESCRIPTION_SELECTORS);
+    let title = '';
+    let company = '';
+    let description = '';
 
-    let title = cleanTitle(textOf(titleEl) || jsonLd?.title || meta.title);
-    let company = cleanCompany(textOf(companyEl) || jsonLd?.company || meta.company);
-    let description =
-      textOf(descEl) ||
-      longestText(DESCRIPTION_SELECTORS) ||
-      jsonLd?.description ||
-      meta.description ||
-      '';
+    const setIf = (field, value, label) => {
+      if (!value) return;
+      if (field === 'title') {
+        if (!title && !isNoiseTitle(value)) {
+          title = cleanTitle(value);
+          sources.title = label;
+        }
+      } else if (field === 'company') {
+        if (!company) {
+          company = cleanCompany(value);
+          if (company) sources.company = label;
+        }
+      } else if (field === 'description') {
+        if (value.length > 80 && value.length > description.length) {
+          description = value;
+          sources.description = label;
+        }
+      }
+    };
 
-    // Drop short/noisy description fragments (sign-in CTAs, etc.)
-    if (description && description.length < 120) {
-      const richer =
-        jsonLd?.description ||
-        longestText([
-          '.show-more-less-html__markup',
-          '#job-details',
-          '.jobs-description__content',
-          '.description__text',
-        ]);
-      if (richer && richer.length > description.length) description = richer;
+    // 1) Structured data
+    [['json-ld', jsonLd], ['embedded', embedded], ['meta', meta]].forEach(([label, s]) => {
+      if (!s) return;
+      setIf('title', s.title, label);
+      setIf('company', s.company, label);
+      setIf('description', s.description, label);
+    });
+
+    // 2) Known class-based DOM (older layouts)
+    setIf('title', queryFirstGoodTitle(), 'dom');
+    setIf('company', queryFirstCompany(), 'dom');
+    setIf('description', collectDescription(), 'dom');
+
+    // 3) Layout-independent text heuristics (new LinkedIn UI)
+    setIf('title', textTC.title, 'text');
+    setIf('company', textTC.company, 'text');
+    setIf('description', descriptionFromAnchor(), 'anchor');
+    setIf('description', descriptionFromText(), 'text');
+
+    // 4) Tab title / logo alt as last resorts
+    if (docTitle) {
+      setIf('title', docTitle.title, 'doc-title');
+      setIf('company', docTitle.company, 'doc-title');
+    }
+    setIf('company', companyFromLogoAlt(), 'logo-alt');
+
+    // Prefer the longest sane description between anchor/text/dom
+    const textDesc = descriptionFromText();
+    if (textDesc.length > description.length * 1.15 && textDesc.length < 40000) {
+      description = textDesc;
+      sources.description = 'text';
     }
 
-    // Avoid capturing global nav "LinkedIn" as title
-    if (title && /^(linkedin|home|jobs)$/i.test(title)) {
-      title = cleanTitle(jsonLd?.title || meta.title || '');
-    }
+    description = description
+      .replace(/\s*Show more\s*Show less\s*$/i, '')
+      .replace(/\s*See more\s*See less\s*$/i, '')
+      .replace(/\s*(\u2026|\.\.\.)\s*more\s*$/i, '')
+      .trim();
 
     const url = location.href.split('?')[0];
-
     const missing = [];
     if (!title) missing.push('title');
     if (!company) missing.push('company');
@@ -263,7 +520,13 @@
       scrapedAt: new Date().toISOString(),
       ok: missing.length === 0,
       missing,
-      source: jsonLd ? 'json-ld+dom' : 'dom',
+      sources,
+      diagnostics: {
+        isTopFrame: window === window.top,
+        hasAboutTheJob: /about the job/i.test(document.body?.innerText || ''),
+        docTitle: document.title,
+        bodyChars: (document.body?.innerText || '').length,
+      },
     };
   }
 
@@ -278,8 +541,7 @@
       }
     }
 
-    const unique = [...new Set(buttons)];
-    unique.forEach((btn) => {
+    [...new Set(buttons)].forEach((btn) => {
       if (disabled) {
         btn.classList.add('sjsc-apply-disabled');
         btn.setAttribute('aria-disabled', 'true');
@@ -326,7 +588,7 @@
       const res = await chrome.runtime.sendMessage({ type: 'GET_PACING_STATE' });
       if (res?.ok) setApplyDisabled(Boolean(res.atCap));
     } catch {
-      /* extension context may be unavailable during reload */
+      /* ignore */
     }
   }
 
@@ -387,11 +649,10 @@
   });
   urlObserver.observe(document.documentElement, { childList: true, subtree: true });
 
-  const domObserver = new MutationObserver(() => {
-    if (pacingAtCap) setApplyDisabled(true);
-  });
   if (document.body) {
-    domObserver.observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(() => {
+      if (pacingAtCap) setApplyDisabled(true);
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   syncPacing();

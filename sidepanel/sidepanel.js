@@ -151,10 +151,13 @@ async function scrapeActiveJob() {
     els.jobUrl.textContent = job.url || tab.url;
 
     if (!job.ok) {
+      const d = job.diagnostics || {};
       showError(
         els.jobError,
         `Could not fully scrape: missing ${job.missing?.join(', ') || 'fields'}. ` +
-          'If you are on a guest page, sign in and click “Show more” on the description, then Refresh.'
+          'Reload the LinkedIn tab, then click Refresh again. ' +
+          `[debug: "About the job" found=${d.hasAboutTheJob}, topFrame=${d.isTopFrame}, ` +
+          `bodyChars=${d.bodyChars ?? '?'}, tabTitle="${d.docTitle || ''}"]`
       );
       return;
     }
