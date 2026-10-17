@@ -81,13 +81,47 @@ async function refreshPacing() {
   if (res?.ok) updatePacingUI(res);
 }
 
+function isLinkedInJobsUrl(url = '') {
+  return /linkedin\.com\/jobs(\/|$|\?)/i.test(url) || /linkedin\.com\/jobs\/view\//i.test(url);
+}
+
 async function getActiveLinkedInTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-  if (!tab?.id || !tab.url?.includes('linkedin.com/jobs')) {
-    return null;
+  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (active?.id && isLinkedInJobsUrl(active.url)) return active;
+
+  // Side panel focus can leave another tab "active" — fall back to any Jobs tab
+  const jobsTabs = await chrome.tabs.query({
+    url: ['https://www.linkedin.com/jobs/*', 'https://www.linkedin.com/jobs/view/*'],
+  });
+  return jobsTabs.find((t) => t.active) || jobsTabs[0] || null;
+}
+
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    return true;
+  } catch {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['content.js'],
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId },
+        files: ['content.css'],
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
-  return tab;
+}
+
+async function requestScrape(tabId) {
+  await ensureContentScript(tabId);
+  // Brief pause so injected script can register listeners
+  await new Promise((r) => setTimeout(r, 50));
+  return chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_JOB' });
 }
 
 async function scrapeActiveJob() {
@@ -99,36 +133,31 @@ async function scrapeActiveJob() {
     els.jobContent.classList.add('hidden');
     showError(
       els.jobError,
-      'No LinkedIn Jobs tab active. Open https://www.linkedin.com/jobs and select a posting.'
+      'No LinkedIn Jobs tab found. Open a posting like https://www.linkedin.com/jobs/view/… then Refresh.'
     );
     return;
   }
 
   try {
-    const job = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_JOB' });
+    const job = await requestScrape(tab.id);
     if (!job) throw new Error('No response from content script.');
 
     currentJob = job;
+    els.jobEmpty.classList.add('hidden');
+    els.jobContent.classList.remove('hidden');
+    els.jobTitle.textContent = job.title || 'Title not found';
+    els.jobCompany.textContent = job.company || 'Company not found';
+    els.jobUrl.href = job.url || tab.url;
+    els.jobUrl.textContent = job.url || tab.url;
+
     if (!job.ok) {
-      els.jobEmpty.classList.add('hidden');
-      els.jobContent.classList.remove('hidden');
-      els.jobTitle.textContent = job.title || 'Title not found';
-      els.jobCompany.textContent = job.company || 'Company not found';
-      els.jobUrl.href = job.url || tab.url;
-      els.jobUrl.textContent = job.url || tab.url;
       showError(
         els.jobError,
-        `Could not fully scrape: missing ${job.missing?.join(', ') || 'fields'}. Try scrolling the job details into view.`
+        `Could not fully scrape: missing ${job.missing?.join(', ') || 'fields'}. ` +
+          'If you are on a guest page, sign in and click “Show more” on the description, then Refresh.'
       );
       return;
     }
-
-    els.jobEmpty.classList.add('hidden');
-    els.jobContent.classList.remove('hidden');
-    els.jobTitle.textContent = job.title;
-    els.jobCompany.textContent = job.company;
-    els.jobUrl.href = job.url;
-    els.jobUrl.textContent = job.url;
   } catch (err) {
     currentJob = null;
     els.jobEmpty.classList.remove('hidden');
@@ -136,7 +165,7 @@ async function scrapeActiveJob() {
     showError(
       els.jobError,
       err?.message?.includes('Could not establish connection')
-        ? 'Content script not ready. Refresh the LinkedIn tab and try again.'
+        ? 'Content script not ready. Refresh the LinkedIn tab, then click Refresh here.'
         : err?.message || 'Scrape failed.'
     );
   }
