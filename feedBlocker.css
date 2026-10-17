@@ -70,6 +70,32 @@
   outline-offset: 2px;
 }
 
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] {
+  border-color: #38434f;
+  background: #191919;
+  color: #f3f2ef;
+}
+
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] .sjsc-career-block-icon {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] p {
+  color: #b0b3b8;
+}
+
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] .sjsc-career-block-reveal {
+  border-color: #70b5f9;
+  color: #70b5f9;
+}
+
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] .sjsc-career-block-reveal:hover,
+.sjsc-career-block-overlay[data-sjsc-theme="dark"] .sjsc-career-block-reveal:focus-visible {
+  background: rgba(112, 181, 249, 0.14);
+  outline-color: #70b5f9;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sjsc-career-block-overlay,
   .sjsc-career-block-reveal {
