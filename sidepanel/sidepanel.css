@@ -448,6 +448,80 @@ section {
   font-size: 12px;
 }
 
+/* ---- Counted applications ------------------------------------------------- */
+
+.applied-label {
+  margin: 4px 0 6px;
+}
+
+.applied-list {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.applied-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.applied-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.applied-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.applied-remove {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.applied-remove:hover,
+.applied-remove:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--li-blue);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: var(--li-blue-hover);
+}
+
 /* ---- Daily check-in ------------------------------------------------------- */
 
 .checkin-help {

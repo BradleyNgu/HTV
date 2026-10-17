@@ -10,6 +10,7 @@ const DEFAULTS = {
   apiKey: '',
   userSkills: [],
   checkIns: [],
+  applicationLog: [],
   projectBank: [
     {
       id: 'proj-telemetry',
@@ -88,6 +89,7 @@ async function ensureDailyReset() {
   if (data.apiKey == null) updates.apiKey = DEFAULTS.apiKey;
   if (data.userSkills == null) updates.userSkills = DEFAULTS.userSkills;
   if (data.checkIns == null) updates.checkIns = DEFAULTS.checkIns;
+  if (data.applicationLog == null) updates.applicationLog = DEFAULTS.applicationLog;
 
   const today = todayKey();
   if (data.lastResetDate !== today) {
@@ -157,16 +159,60 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: true, ...pacingState(state) });
           break;
         }
-        case 'INCREMENT_APP_COUNT': {
+        case 'RECORD_APPLICATION': {
+          // Sent by the content script when the user applies on LinkedIn.
+          // Always counted (even past the cap — it really happened), but each
+          // job is only ever counted once.
+          const jobKey = String(message.jobKey || '').slice(0, 100);
+          if (!jobKey) {
+            sendResponse({ ok: false, error: 'Missing job key.' });
+            break;
+          }
           const state = await ensureDailyReset();
-          const pacing = pacingState(state);
-          if (pacing.atCap) {
-            sendResponse({ ok: false, error: 'Daily application cap reached.', ...pacing });
+          const log = state.applicationLog || [];
+          if (log.some((e) => e.jobKey === jobKey)) {
+            sendResponse({ ok: true, duplicate: true, ...pacingState(state) });
+            break;
+          }
+          const clip = (v, n = 120) => String(v || '').trim().slice(0, n);
+          const method = ['easy', 'external', 'manual'].includes(message.method)
+            ? message.method
+            : 'external';
+          const entry = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            jobKey,
+            title: clip(message.title) || 'Untitled role',
+            company: clip(message.company),
+            url: clip(message.url, 300),
+            method,
+            date: todayKey(),
+            at: Date.now(),
+          };
+          const next = {
+            applicationLog: [...log, entry].slice(-200),
+            appsSubmittedToday: state.appsSubmittedToday + 1,
+            lastResetDate: todayKey(),
+          };
+          await chrome.storage.local.set(next);
+          await updateBadge();
+          sendResponse({ ok: true, entry, ...pacingState({ ...state, ...next }) });
+          break;
+        }
+        case 'REMOVE_APPLICATION': {
+          // Lets the user correct a miscount (e.g. closed the tab before applying).
+          const state = await ensureDailyReset();
+          const log = state.applicationLog || [];
+          const entry = log.find((e) => e.id === message.id);
+          if (!entry) {
+            sendResponse({ ok: false, error: 'Application not found.' });
             break;
           }
           const next = {
-            appsSubmittedToday: state.appsSubmittedToday + 1,
-            lastResetDate: todayKey(),
+            applicationLog: log.filter((e) => e.id !== message.id),
+            appsSubmittedToday:
+              entry.date === todayKey()
+                ? Math.max(0, state.appsSubmittedToday - 1)
+                : state.appsSubmittedToday,
           };
           await chrome.storage.local.set(next);
           await updateBadge();
