@@ -65,14 +65,10 @@
     '.core-section-container__content',
   ];
 
-  const APPLY_BUTTON_SELECTORS = [
-    'button.jobs-apply-button',
-    '.jobs-apply-button',
-    'button[aria-label*="Easy Apply" i]',
-    'button[aria-label*="Apply" i]',
-    '.jobs-s-apply button',
-    '#jobs-apply-button-id',
-  ];
+  // Class-based hints for older layouts. The new layout uses hashed classes, so
+  // apply buttons are ALSO recognised by their visible text / aria-label.
+  const APPLY_CLASS_SELECTORS = ['.jobs-apply-button', '#jobs-apply-button-id', '.jobs-s-apply button'];
+  const CONTROL_SELECTOR = 'button, a, [role="button"]';
 
   let lastUrl = location.href;
   let pacingAtCap = false;
@@ -530,18 +526,145 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Apply / submit detection — drives automatic pacing
+  // ---------------------------------------------------------------------------
+
+  function controlLabel(el) {
+    return (el?.getAttribute?.('aria-label') || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function controlText(el) {
+    return (el?.innerText || el?.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  /** The "Apply" / "Easy Apply" button on a job — not "Applied", "Apply filters", etc. */
+  function isApplyControl(el) {
+    if (!el || el.closest?.('#sjsc-pacing-banner, #sjsc-toast')) return false;
+    const text = controlText(el);
+    const label = controlLabel(el);
+    if (/\bapplied\b/i.test(text) || /\bapplied\b/i.test(label)) return false;
+    if (/^(easy )?apply( now)?$/i.test(text)) return true;
+    if (/^(easy apply|apply on company website|apply to\b)/i.test(label)) return true;
+    return APPLY_CLASS_SELECTORS.some((sel) => {
+      try {
+        return el.matches(sel);
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  function isEasyApply(el) {
+    return /easy apply/i.test(`${controlText(el)} ${controlLabel(el)}`);
+  }
+
+  /** Final "Submit application" button inside the Easy Apply dialog. */
+  function isSubmitControl(el) {
+    return /^submit application$/i.test(controlLabel(el)) || /^submit application$/i.test(controlText(el));
+  }
+
+  function findApplyControls() {
+    const found = new Set();
+    document.querySelectorAll(CONTROL_SELECTOR).forEach((el) => {
+      if (isApplyControl(el)) found.add(el);
+    });
+    return [...found];
+  }
+
+  function submitControlExists() {
+    return [...document.querySelectorAll(CONTROL_SELECTOR)].some(isSubmitControl);
+  }
+
+  /** Stable per-job key: LinkedIn job id from /jobs/view/<id> or ?currentJobId=<id>. */
+  function currentJobKey() {
+    try {
+      const url = new URL(location.href);
+      const id =
+        url.searchParams.get('currentJobId') ||
+        (url.pathname.match(/\/jobs\/view\/(?:[^/]*-)?(\d+)/) || [])[1];
+      if (id) return `li-${id}`;
+      return `url-${url.pathname}`;
+    } catch {
+      return `url-${location.pathname}`;
+    }
+  }
+
+  function showToast(message) {
+    let toast = document.getElementById('sjsc-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'sjsc-toast';
+      toast.setAttribute('role', 'status');
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('visible');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove('visible'), 4500);
+  }
+
+  async function recordApplication(method) {
+    const job = scrapeJob();
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'RECORD_APPLICATION',
+        jobKey: currentJobKey(),
+        title: job.title,
+        company: job.company,
+        url: job.url,
+        method,
+      });
+      if (!res?.ok) return;
+      setApplyDisabled(Boolean(res.atCap));
+      showToast(
+        res.duplicate
+          ? 'Already counted toward today\u2019s pace.'
+          : `Counted toward today\u2019s pace: ${res.appsSubmittedToday} of ${res.dailyAppCap}.`
+      );
+    } catch {
+      /* extension reloaded mid-click — nothing to record */
+    }
+  }
+
+  // Easy Apply is counted only once the application actually goes through, so
+  // opening the dialog (or abandoning it) never uses up a slot.
+  const SENT_TEXT = /application sent|your application was sent|application submitted/i;
+  const FORM_ERROR_TEXT = /\brequired\b|please enter|please make a selection|enter a valid|must be/i;
+  let submissionWatch = null;
+
+  function watchEasyApplySubmission() {
+    if (submissionWatch) clearInterval(submissionWatch.timer);
+    const watch = { startedAt: Date.now(), timer: null };
+    submissionWatch = watch;
+
+    const finish = (shouldRecord) => {
+      clearInterval(watch.timer);
+      if (submissionWatch === watch) submissionWatch = null;
+      if (shouldRecord) recordApplication('easy');
+    };
+
+    watch.timer = setInterval(() => {
+      const elapsed = Date.now() - watch.startedAt;
+      const dialogText = document.querySelector('[role="dialog"]')?.innerText || '';
+      const pageText = document.body?.innerText || '';
+
+      if (SENT_TEXT.test(dialogText) || SENT_TEXT.test(pageText)) return finish(true);
+
+      // Fallback if LinkedIn changes the confirmation wording: the Submit button
+      // is gone and the form is not showing a validation error.
+      if (elapsed > 1500 && !submitControlExists() && !FORM_ERROR_TEXT.test(dialogText)) {
+        return finish(true);
+      }
+      if (elapsed > 15000) finish(false);
+    }, 500);
+  }
+
   function setApplyDisabled(disabled) {
     pacingAtCap = disabled;
-    const buttons = [];
-    for (const sel of APPLY_BUTTON_SELECTORS) {
-      try {
-        document.querySelectorAll(sel).forEach((btn) => buttons.push(btn));
-      } catch {
-        /* skip */
-      }
-    }
+    const buttons = findApplyControls();
 
-    [...new Set(buttons)].forEach((btn) => {
+    buttons.forEach((btn) => {
       if (disabled) {
         btn.classList.add('sjsc-apply-disabled');
         btn.setAttribute('aria-disabled', 'true');
@@ -595,19 +718,23 @@
   document.addEventListener(
     'click',
     (e) => {
-      if (!pacingAtCap) return;
-      const hit = APPLY_BUTTON_SELECTORS.some((sel) => {
-        try {
-          return Boolean(e.target?.closest?.(sel));
-        } catch {
-          return false;
+      const control = e.target?.closest?.(CONTROL_SELECTOR);
+      if (!control) return;
+
+      if (isApplyControl(control)) {
+        if (pacingAtCap) {
+          e.preventDefault();
+          e.stopPropagation();
+          ensureOverlay(true);
+          return;
         }
-      });
-      if (hit) {
-        e.preventDefault();
-        e.stopPropagation();
-        ensureOverlay(true);
+        // Apply on the company's site can't be observed, so count the click.
+        // Easy Apply is counted when the application is actually submitted.
+        if (!isEasyApply(control)) recordApplication('external');
+        return;
       }
+
+      if (isSubmitControl(control)) watchEasyApplySubmission();
     },
     true
   );
@@ -649,9 +776,16 @@
   });
   urlObserver.observe(document.documentElement, { childList: true, subtree: true });
 
+  // Re-lock Apply buttons after LinkedIn re-renders them. Debounced because
+  // scanning every control on each of LinkedIn's constant DOM mutations is costly.
+  let relockTimer = null;
   if (document.body) {
     new MutationObserver(() => {
-      if (pacingAtCap) setApplyDisabled(true);
+      if (!pacingAtCap || relockTimer) return;
+      relockTimer = setTimeout(() => {
+        relockTimer = null;
+        if (pacingAtCap) setApplyDisabled(true);
+      }, 300);
     }).observe(document.body, { childList: true, subtree: true });
   }
 

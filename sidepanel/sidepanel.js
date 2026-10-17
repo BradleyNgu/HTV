@@ -1,6 +1,6 @@
 import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
-import { initWellbeing } from './wellbeing.js';
+import { initWellbeing, localDateKey } from './wellbeing.js';
 import { initCareerTools } from './careerTools.js';
 
 const els = {
@@ -12,7 +12,9 @@ const els = {
   pacingMeter: document.getElementById('pacing-meter'),
   pacingCount: document.getElementById('pacing-count'),
   pacingCap: document.getElementById('pacing-cap'),
-  btnLogApply: document.getElementById('btn-log-apply'),
+  appliedList: document.getElementById('applied-list'),
+  appliedEmpty: document.getElementById('applied-empty'),
+  btnAddManual: document.getElementById('btn-add-manual'),
   btnScrape: document.getElementById('btn-scrape'),
   btnParse: document.getElementById('btn-parse'),
   jobEmpty: document.getElementById('job-empty'),
@@ -88,7 +90,6 @@ function updatePacingUI({ appsSubmittedToday, dailyAppCap, atCap, adjusted, base
   els.pacingBadge.textContent = atCap ? 'Cap reached' : 'Ready';
   els.pacingBadge.classList.toggle('status-ok', !atCap);
   els.pacingBadge.classList.toggle('status-cap', Boolean(atCap));
-  els.btnLogApply.disabled = Boolean(atCap);
 }
 
 async function refreshPacing() {
@@ -305,15 +306,71 @@ async function notifyContentScript(atCap) {
   }
 }
 
-async function logApplication() {
-  const res = await chrome.runtime.sendMessage({ type: 'INCREMENT_APP_COUNT' });
-  if (res?.ok || res?.atCap != null) {
-    updatePacingUI(res);
-    await notifyContentScript(res.atCap);
-  }
-  if (!res?.ok && res?.error) {
-    showError(els.jobError, res.error);
-  }
+// ---- Applications counted today (recorded automatically by the content script)
+
+const METHOD_LABELS = {
+  easy: 'Easy Apply',
+  external: 'Company site',
+  manual: 'Added manually',
+};
+
+async function renderApplications() {
+  const { applicationLog = [] } = await chrome.storage.local.get('applicationLog');
+  const today = localDateKey();
+  const entries = applicationLog.filter((e) => e.date === today).reverse();
+
+  els.appliedList.innerHTML = '';
+  els.appliedEmpty.classList.toggle('hidden', entries.length > 0);
+
+  entries.forEach((entry) => {
+    const li = document.createElement('li');
+    li.className = 'applied-item';
+
+    const info = document.createElement('div');
+    info.className = 'applied-info';
+    const title = document.createElement('span');
+    title.className = 'applied-title';
+    title.textContent = entry.company ? `${entry.title} · ${entry.company}` : entry.title;
+    const meta = document.createElement('span');
+    meta.className = 'muted';
+    const time = new Date(entry.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    meta.textContent = `${METHOD_LABELS[entry.method] || 'Applied'} · ${time}`;
+    info.append(title, meta);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'applied-remove';
+    remove.textContent = '×';
+    remove.title = 'Not counted? Remove this application';
+    remove.setAttribute('aria-label', `Remove ${entry.title} from today's count`);
+    remove.addEventListener('click', () => removeApplication(entry.id));
+
+    li.append(info, remove);
+    els.appliedList.appendChild(li);
+  });
+}
+
+async function applyPacingChange(res) {
+  if (!res?.ok) return;
+  updatePacingUI(res);
+  await notifyContentScript(res.atCap);
+}
+
+async function removeApplication(id) {
+  await applyPacingChange(await chrome.runtime.sendMessage({ type: 'REMOVE_APPLICATION', id }));
+}
+
+// Safety valve for the rare case automatic detection misses something
+// (e.g. applied on a phone). Not the main path.
+async function addManualApplication() {
+  await applyPacingChange(
+    await chrome.runtime.sendMessage({
+      type: 'RECORD_APPLICATION',
+      jobKey: `manual-${Date.now()}`,
+      title: 'Application added manually',
+      method: 'manual',
+    })
+  );
 }
 
 async function loadSettings() {
@@ -331,7 +388,7 @@ async function loadSettings() {
 
 els.btnScrape.addEventListener('click', scrapeActiveJob);
 els.btnParse.addEventListener('click', runParseAndMatch);
-els.btnLogApply.addEventListener('click', logApplication);
+els.btnAddManual.addEventListener('click', addManualApplication);
 
 els.btnSettings.addEventListener('click', async () => {
   await loadSettings();
@@ -358,14 +415,17 @@ els.settingsForm.addEventListener('submit', async (e) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
+  // The content script records applications; the panel just reflects storage.
   if (changes.appsSubmittedToday || changes.dailyAppCap || changes.checkIns) {
     refreshPacing();
   }
+  if (changes.applicationLog) renderApplications();
 });
 
 (async function init() {
   await loadSettings();
   await refreshPacing();
+  await renderApplications();
   await initWellbeing({
     onSaved: async (pacing) => {
       updatePacingUI(pacing);

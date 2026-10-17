@@ -15,7 +15,7 @@ Open [LinkedIn Jobs](https://www.linkedin.com/jobs/), then click the extension i
 
 | Area | Behavior |
 |------|----------|
-| **Pacing** | Tracks apps vs daily cap (default 4); resets at midnight; disables Easy Apply when at cap |
+| **Pacing** | Counts applications automatically as you apply on LinkedIn (no button to press) against a daily cap (default 4). Resets at local midnight; locks the Apply button at the cap. Each job counts once. Counted applications are listed in the panel, and a wrong one can be removed with × |
 | **Scraper** | Extracts title, company, description, URL from LinkedIn job DOM (with fallback selectors) |
 | **AI parse** | Returns typed JSON (`tech`, `domain`, `seniority`, `responsibilities`) as badges—not chat |
 | **STAR match** | Ranks local project bank (Gemini embeddings when a key is set, keyword overlap otherwise) and surfaces top 2 Situation / Task / Action / Result cards |
