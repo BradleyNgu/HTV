@@ -776,7 +776,7 @@ function initResetDayButtons() {
     button.addEventListener('click', async () => {
       if (!button.classList.contains('confirming')) {
         button.classList.add('confirming');
-        button.textContent = "Click again to clear today's applications";
+        button.textContent = 'Click again to reset';
         timer = setTimeout(disarm, 4000);
         return;
       }
@@ -794,7 +794,7 @@ function initResetDayButtons() {
       if (failed) {
         button.textContent = 'Reset failed. Try again';
         timer = setTimeout(disarm, 4000);
-      } else if (button.closest('#settings-dialog')) {
+      } else if (!button.closest('.day-done')) {
         button.textContent = 'Today was reset';
         timer = setTimeout(disarm, 2500);
       }

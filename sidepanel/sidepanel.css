@@ -1376,53 +1376,76 @@ body.shutdown-open {
   opacity: 0.72;
 }
 
+.panel-footer {
+  margin: 4px 2px 0;
+  text-align: center;
+}
+
+.reset-day-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.reset-day-link:hover,
+.reset-day-link:focus-visible {
+  color: var(--li-blue);
+}
+
+.reset-day-link:focus-visible {
+  outline: 2px solid var(--li-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.reset-day-link.confirming {
+  color: var(--danger);
+}
+
+.reset-day-link:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 .day-done-reset {
   display: block;
-  margin: 14px auto 0;
-  padding: 7px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  margin: 4px auto 0;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
   color: #fff;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.72;
   cursor: pointer;
 }
 
 .day-done-reset:hover:not(:disabled),
 .day-done-reset:focus-visible {
-  background: rgba(255, 255, 255, 0.22);
+  opacity: 1;
 }
 
 .day-done-reset:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .day-done-reset.confirming {
-  border-color: #fff;
-  background: #fff;
-  color: #4c1d95;
+  opacity: 1;
+  text-decoration: none;
 }
 
 .day-done-reset:disabled {
   opacity: 0.7;
   cursor: progress;
-}
-
-.reset-day-row .muted {
-  font-weight: 400;
-}
-
-.reset-day-btn {
-  align-self: flex-start;
-}
-
-.reset-day-btn.confirming {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
 }
 
 .day-done-back {

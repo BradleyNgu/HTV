@@ -154,6 +154,10 @@
       <p id="prep-error" class="error-inline hidden" role="alert"></p>
     </section>
 
+    <p class="panel-footer">
+      <button type="button" class="reset-day-link" data-reset-day>Reset today</button>
+    </p>
+
     <div
       id="shutdown-overlay"
       class="shutdown-overlay hidden"
@@ -250,8 +254,8 @@
           <li>Eat something good</li>
         </ul>
         <p class="day-done-foot">Applications are locked until tomorrow.</p>
-        <button type="button" class="day-done-reset" data-reset-day>Need to send more? Reset today</button>
         <button type="button" id="btn-day-done-back" class="day-done-back">Back to the panel</button>
+        <button type="button" class="day-done-reset" data-reset-day>Reset Applications today</button>
       </div>
     </div>
 
@@ -262,13 +266,6 @@
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
         </label>
-        <div class="label reset-day-row">
-          <span>Today's data</span>
-          <span class="muted">
-            Clears today's application count and list, and reopens a wrapped-up day. Takes effect right away.
-          </span>
-          <button type="button" class="btn btn-ghost reset-day-btn" data-reset-day>Reset today</button>
-        </div>
         <div class="label">
           <span>Your skills <span class="muted">(from your resume; used for the skills-gap plan)</span></span>
           <div
