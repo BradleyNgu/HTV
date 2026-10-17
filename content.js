@@ -678,7 +678,7 @@
           'title',
           state?.shutdownLocked
             ? 'Daily cap reached! Protect your energy for tomorrow.'
-            : 'Daily application cap reached, paced by Job Search Copilot'
+            : 'Daily application cap reached, paced by Checkpoint'
         );
       } else {
         btn.classList.remove('sjsc-apply-disabled');

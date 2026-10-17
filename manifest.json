@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Sustainable Job Search Copilot",
+  "name": "Checkpoint",
   "version": "6.7",
   "description": "Pace LinkedIn applications, parse job requirements into structured insights, and match STAR stories without a chatbot.",
   "permissions": [
@@ -46,7 +46,7 @@
     "default_path": "sidepanel/sidepanel.html"
   },
   "action": {
-    "default_title": "Open Job Search Copilot",
+    "default_title": "Open Checkpoint",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

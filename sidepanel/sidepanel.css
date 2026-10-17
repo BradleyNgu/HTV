@@ -114,6 +114,70 @@ section {
   margin-bottom: 10px;
 }
 
+/* ---- Collapsible sections ------------------------------------------------- */
+
+h2.collapsible-head,
+.collapsible-head h2 {
+  flex: 1;
+  min-width: 0;
+}
+
+h2.collapsible-head {
+  margin-bottom: 10px;
+}
+
+section.collapsed > .collapsible-head {
+  margin-bottom: 0;
+}
+
+.collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: -4px 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collapse-toggle:hover {
+  color: var(--li-blue);
+}
+
+.collapse-toggle:focus-visible {
+  outline: 2px solid var(--li-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.collapse-chevron {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.15s ease;
+}
+
+section.collapsed .collapse-chevron {
+  transform: rotate(-45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapse-chevron {
+    transition: none;
+  }
+}
+
 .meter {
   height: 8px;
   background: #ececec;
@@ -1239,5 +1303,192 @@ body.shutdown-open {
 @media (prefers-reduced-motion: reduce) {
   .shutdown-overlay {
     scroll-behavior: auto;
+  }
+}
+
+/* ---- Day complete --------------------------------------------------------- */
+
+.day-done {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 28px 20px;
+  color: #fff;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 118%, rgba(255, 196, 120, 0.55), transparent 55%),
+    linear-gradient(180deg, #1e1b4b 0%, #4c1d95 48%, #be185d 82%, #f59e0b 120%);
+  animation: day-done-in 0.6s ease both;
+}
+
+.day-done-inner {
+  max-width: 320px;
+}
+
+.day-done-sun {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff7d6, #fbbf24 60%, #f97316);
+  box-shadow: 0 0 0 10px rgba(251, 191, 36, 0.14), 0 0 48px rgba(251, 146, 60, 0.6);
+  animation: day-done-float 5s ease-in-out infinite;
+}
+
+.day-done-kicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.day-done-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  outline: none;
+}
+
+.day-done-message {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.94;
+}
+
+.day-done-stats {
+  display: inline-block;
+  margin: 16px 0 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.day-done-stats:empty {
+  display: none;
+}
+
+.day-done-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day-done-ideas li {
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.day-done-foot {
+  margin: 22px 0 0;
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+.day-done-reset {
+  display: block;
+  margin: 14px auto 0;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.day-done-reset:hover:not(:disabled),
+.day-done-reset:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.day-done-reset:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.day-done-reset.confirming {
+  border-color: #fff;
+  background: #fff;
+  color: #4c1d95;
+}
+
+.day-done-reset:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.reset-day-row .muted {
+  font-weight: 400;
+}
+
+.reset-day-btn {
+  align-self: flex-start;
+}
+
+.reset-day-btn.confirming {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.day-done-back {
+  display: block;
+  margin: 6px auto 0;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.72;
+  cursor: pointer;
+}
+
+.day-done-back:hover,
+.day-done-back:focus-visible {
+  opacity: 1;
+}
+
+.day-done-back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes day-done-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes day-done-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-done,
+  .day-done-sun {
+    animation: none;
   }
 }

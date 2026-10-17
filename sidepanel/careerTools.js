@@ -26,6 +26,7 @@ function setError(node, message) {
  */
 export function initCareerTools({ getContext }) {
   const gap = {
+    section: $('section-gap'),
     btn: $('btn-gap'),
     empty: $('gap-empty'),
     content: $('gap-content'),
@@ -39,12 +40,14 @@ export function initCareerTools({ getContext }) {
     error: $('gap-error'),
   };
   const prep = {
+    section: $('section-prep'),
     btn: $('btn-prep'),
     empty: $('prep-empty'),
     content: $('prep-content'),
     error: $('prep-error'),
   };
   const process = {
+    section: $('section-process'),
     btn: $('btn-process'),
     empty: $('process-empty'),
     content: $('process-content'),
@@ -267,12 +270,18 @@ export function initCareerTools({ getContext }) {
   prep.btn.addEventListener('click', runPrep);
 
   return {
-    /** Enable/disable buttons based on what has been parsed/matched. */
+    /** Each panel is only shown (and enabled) once its inputs exist. */
     refresh() {
       const ctx = getContext();
-      gap.btn.disabled = !ctx.parsed;
-      process.btn.disabled = !(ctx.job && ctx.parsed);
-      prep.btn.disabled = !(ctx.parsed && ctx.matches.length);
+      const usable = {
+        gap: Boolean(ctx.parsed),
+        process: Boolean(ctx.job && ctx.parsed),
+        prep: Boolean(ctx.parsed && ctx.matches.length),
+      };
+      for (const [key, panel] of Object.entries({ gap, process, prep })) {
+        panel.btn.disabled = !usable[key];
+        panel.section.classList.toggle('hidden', !usable[key]);
+      }
     },
     /** Clear stale results when a new job is parsed. */
     reset() {

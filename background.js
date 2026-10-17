@@ -340,6 +340,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           });
           break;
         }
+        case 'RESET_DAY': {
+          // Start today over: count, counted list, session, and shutdown lock.
+          // Earlier days' history is untouched.
+          const state = await ensureDailyReset();
+          const today = todayKey();
+          const next = {
+            appsSubmittedToday: 0,
+            currentSessionJobs: [],
+            applicationLog: (state.applicationLog || []).filter((e) => e.date !== today),
+            shutdownCompletedDate: '',
+            lastResetDate: today,
+          };
+          await chrome.storage.local.set(next);
+          await chrome.storage.local.remove([`log_${today}`, `shutdownAdvice_${today}`]);
+          await updateBadge();
+          sendResponse({ ok: true, ...pacingState({ ...state, ...next }) });
+          break;
+        }
         case 'GET_PROJECT_BANK': {
           const state = await ensureDailyReset();
           sendResponse({ ok: true, projectBank: state.projectBank || [] });

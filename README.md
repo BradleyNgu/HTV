@@ -1,4 +1,4 @@
-# Sustainable Job Search Copilot
+# Checkpoint
 
 Chrome Manifest V3 side-panel extension for LinkedIn Jobs. Enforces daily application pacing, parses job descriptions into structured JSON signals, and matches STAR project stories without a chatbot UI.
 

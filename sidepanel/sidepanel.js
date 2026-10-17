@@ -3,6 +3,9 @@ import { matchStarStoriesSemantic } from '../services/starMatcher.js';
 import { extractSkillsFromPdf, SKILL_CATEGORIES } from '../services/resumeSkills.js';
 import { callGeminiJson } from '../services/gemini.js';
 import { initCareerTools } from './careerTools.js';
+import { initCollapsibles } from './collapsible.js';
+
+initCollapsibles();
 
 function localDateKey(d = new Date()) {
   const year = d.getFullYear();
@@ -41,6 +44,10 @@ const els = {
   shutdownStatus: document.getElementById('shutdown-status'),
   btnCompleteShutdown: document.getElementById('btn-complete-shutdown'),
   btnCloseShutdown: document.getElementById('btn-close-shutdown'),
+  dayDone: document.getElementById('day-done'),
+  dayDoneTitle: document.getElementById('day-done-title'),
+  dayDoneStats: document.getElementById('day-done-stats'),
+  btnDayDoneBack: document.getElementById('btn-day-done-back'),
   btnScrape: document.getElementById('btn-scrape'),
   btnParse: document.getElementById('btn-parse'),
   jobEmpty: document.getElementById('job-empty'),
@@ -49,7 +56,8 @@ const els = {
   jobCompany: document.getElementById('job-company'),
   jobUrl: document.getElementById('job-url'),
   jobError: document.getElementById('job-error'),
-  parsedEmpty: document.getElementById('parsed-empty'),
+  sectionParsed: document.getElementById('section-parsed'),
+  sectionStar: document.getElementById('section-star'),
   parsedContent: document.getElementById('parsed-content'),
   techBadges: document.getElementById('tech-badges'),
   domainBadges: document.getElementById('domain-badges'),
@@ -71,11 +79,15 @@ const els = {
 let currentJob = null;
 let currentParsed = null;
 let currentMatches = [];
+// URL of the job that currentParsed/currentMatches describe.
+let analyzedJobUrl = '';
 let settings = { apiKey: '', dailyAppCap: 4, userSkills: [], skillProfile: [], resumeName: '' };
 // Skill profile shown in the open settings dialog; removals persist on Save.
 let draftProfile = [];
 let shutdownOpening = false;
 let shutdownAutoShownDate = '';
+// Date the user chose "Back to the panel" on the day-complete screen.
+let dayDoneDismissedDate = '';
 
 const careerTools = initCareerTools({
   getContext: () => ({ job: currentJob, parsed: currentParsed, matches: currentMatches, settings }),
@@ -177,7 +189,35 @@ async function requestScrape(tabId) {
   return chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_JOB' });
 }
 
+function updateSectionVisibility() {
+  const hasParseError = !els.parseError.classList.contains('hidden');
+  els.sectionParsed.classList.toggle('hidden', !currentParsed && !hasParseError);
+  els.sectionStar.classList.toggle('hidden', !currentParsed);
+  careerTools.refresh();
+}
+
+/** Drop results that belong to a job that is no longer the active one. */
+function clearAnalysis() {
+  currentParsed = null;
+  currentMatches = [];
+  analyzedJobUrl = '';
+  careerTools.reset();
+  els.parsedContent.classList.add('hidden');
+  els.starContent.innerHTML = '';
+  els.starMethod.classList.add('hidden');
+  showError(els.parseError, '');
+  updateSectionVisibility();
+}
+
 async function scrapeActiveJob() {
+  try {
+    await scrapeJobIntoPanel();
+  } finally {
+    if (!currentJob || (currentJob.url || '') !== analyzedJobUrl) clearAnalysis();
+  }
+}
+
+async function scrapeJobIntoPanel() {
   showError(els.jobError, '');
   const tab = await getActiveLinkedInTab();
   if (!tab) {
@@ -228,7 +268,6 @@ async function scrapeActiveJob() {
 }
 
 function renderParsed(parsed) {
-  els.parsedEmpty.classList.add('hidden');
   els.parsedContent.classList.remove('hidden');
   renderBadges(els.seniorityBadges, [parsed.seniorityLevel], 'seniority');
   renderBadges(els.techBadges, parsed.requiredTechStack);
@@ -301,22 +340,19 @@ function escapeHtml(str) {
 }
 
 async function runParseAndMatch() {
-  showError(els.parseError, '');
   if (!currentJob?.description) {
-    showError(els.parseError, 'Scrape a job with a description before parsing.');
+    showError(els.jobError, 'Scrape a job with a description before parsing.');
     return;
   }
 
   els.btnParse.disabled = true;
   els.btnParse.textContent = 'Parsing…';
+  clearAnalysis();
   try {
-    careerTools.reset();
-    currentParsed = null;
-    currentMatches = [];
-
     const parsed = await parseJob(currentJob, settings);
     renderParsed(parsed);
     currentParsed = parsed;
+    analyzedJobUrl = currentJob.url || '';
     await chrome.runtime.sendMessage({
       type: 'ENRICH_SESSION_JOB',
       url: currentJob.url,
@@ -336,7 +372,7 @@ async function runParseAndMatch() {
   } finally {
     els.btnParse.disabled = false;
     els.btnParse.textContent = 'Parse requirements';
-    careerTools.refresh();
+    updateSectionVisibility();
   }
 }
 
@@ -636,11 +672,117 @@ async function completeShutdown() {
       .sendMessage(tab.id, { type: 'SHUTDOWN_LOCK' })
       .catch(() => {});
   }
-  els.shutdownStatus.textContent =
-    'Workday closed. LinkedIn applications are locked until tomorrow.';
-  els.shutdownStatus.classList.remove('hidden');
   els.btnCompleteShutdown.textContent = 'Workday Shutdown Complete';
-  setTimeout(closeShutdownOverlay, 1200);
+  closeShutdownOverlay();
+  dayDoneDismissedDate = '';
+  await syncDayDone();
+}
+
+// ---- Day complete screen ---------------------------------------------------
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+function setPanelInert(inert) {
+  for (const child of document.body.children) {
+    if (child !== els.dayDone && child.tagName !== 'SCRIPT') child.inert = inert;
+  }
+}
+
+function showDayDone(sessionJobs = []) {
+  const skills = uniqueSessionSkills(sessionJobs).length;
+  els.dayDoneStats.textContent = sessionJobs.length
+    ? `${plural(sessionJobs.length, 'application')} sent${skills ? ` · ${plural(skills, 'skill')} noted` : ''}`
+    : '';
+  const wasHidden = els.dayDone.classList.contains('hidden');
+  els.dayDone.classList.remove('hidden');
+  document.body.classList.add('shutdown-open');
+  setPanelInert(true);
+  if (wasHidden) els.dayDoneTitle.focus();
+}
+
+function hideDayDone() {
+  if (els.dayDone.classList.contains('hidden')) return;
+  els.dayDone.classList.add('hidden');
+  document.body.classList.remove('shutdown-open');
+  setPanelInert(false);
+}
+
+/** Show the day-complete screen whenever today's shutdown is done (unless dismissed). */
+async function syncDayDone() {
+  const state = await chrome.runtime.sendMessage({ type: 'GET_SESSION_STATE' });
+  if (!state?.ok) return;
+  if (!state.shutdownCompleted) {
+    hideDayDone();
+  } else if (dayDoneDismissedDate !== localDateKey()) {
+    showDayDone(state.currentSessionJobs || []);
+  }
+}
+
+async function resetDay() {
+  const res = await chrome.runtime.sendMessage({ type: 'RESET_DAY' });
+  if (!res?.ok) throw new Error(res?.error || 'Could not reset today.');
+  dayDoneDismissedDate = '';
+  shutdownAutoShownDate = '';
+  const fromDayDone = !els.dayDone.classList.contains('hidden');
+  hideDayDone();
+  updatePacingUI(res);
+  await notifyContentScript(res.atCap);
+  await renderApplications();
+  if (fromDayDone) els.btnWrapUp.focus();
+}
+
+/** Reset buttons need a second click within a few seconds, since the reset can't be undone. */
+function initResetDayButtons() {
+  document.querySelectorAll('[data-reset-day]').forEach((button) => {
+    const label = button.textContent;
+    let timer = null;
+    const disarm = () => {
+      clearTimeout(timer);
+      button.classList.remove('confirming');
+      button.textContent = label;
+    };
+    button.addEventListener('click', async () => {
+      if (!button.classList.contains('confirming')) {
+        button.classList.add('confirming');
+        button.textContent = "Click again to clear today's applications";
+        timer = setTimeout(disarm, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      button.disabled = true;
+      button.textContent = 'Resetting…';
+      let failed = false;
+      try {
+        await resetDay();
+      } catch {
+        failed = true;
+      }
+      button.disabled = false;
+      disarm();
+      if (failed) {
+        button.textContent = 'Reset failed. Try again';
+        timer = setTimeout(disarm, 4000);
+      } else if (button.closest('#settings-dialog')) {
+        button.textContent = 'Today was reset';
+        timer = setTimeout(disarm, 2500);
+      }
+    });
+    button.addEventListener('blur', () => {
+      if (!button.disabled) disarm();
+    });
+  });
+}
+
+async function wrapUpDay() {
+  const state = await chrome.runtime.sendMessage({ type: 'GET_SESSION_STATE' });
+  if (state?.ok && state.shutdownCompleted) {
+    dayDoneDismissedDate = '';
+    showDayDone(state.currentSessionJobs || []);
+    return;
+  }
+  await openShutdownOverlay({ sessionState: state?.ok ? state : null });
 }
 
 async function loadSettings() {
@@ -844,7 +986,17 @@ function initResumeDrop() {
 els.btnScrape.addEventListener('click', scrapeActiveJob);
 els.btnParse.addEventListener('click', runParseAndMatch);
 els.btnAddManual.addEventListener('click', addManualApplication);
-els.btnWrapUp.addEventListener('click', () => openShutdownOverlay());
+els.btnWrapUp.addEventListener('click', wrapUpDay);
+initResetDayButtons();
+els.btnDayDoneBack.addEventListener('click', () => {
+  dayDoneDismissedDate = localDateKey();
+  hideDayDone();
+  els.btnWrapUp.focus();
+});
+// A panel left open overnight should drop yesterday's screen when it's looked at again.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncDayDone();
+});
 els.btnCloseShutdown.addEventListener('click', closeShutdownOverlay);
 els.btnCompleteShutdown.addEventListener('click', completeShutdown);
 document.addEventListener('keydown', (e) => {
@@ -893,9 +1045,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
     refreshPacing();
   }
   if (changes.applicationLog) renderApplications();
+  if (changes.shutdownCompletedDate) syncDayDone();
 });
 
 (async function init() {
+  await syncDayDone();
   await loadSettings();
   await refreshPacing();
   await renderApplications();

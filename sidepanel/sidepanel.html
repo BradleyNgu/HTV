@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Job Search Copilot</title>
+    <title>Checkpoint</title>
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
@@ -11,7 +11,7 @@
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <div>
-          <h1 class="brand-name">Job Search Copilot</h1>
+          <h1 class="brand-name">Checkpoint</h1>
           <p class="brand-sub">Sustainable LinkedIn applications</p>
         </div>
       </div>
@@ -59,9 +59,8 @@
       <p id="job-error" class="error-inline hidden" role="alert"></p>
     </section>
 
-    <section class="parsed" aria-labelledby="parsed-heading">
+    <section id="section-parsed" data-collapsible class="parsed hidden" aria-labelledby="parsed-heading">
       <h2 id="parsed-heading" class="section-title">Parsed signals</h2>
-      <div id="parsed-empty" class="empty-state">Structured tech, domain, and seniority badges appear here after parsing.</div>
       <div id="parsed-content" class="hidden">
         <div class="field">
           <span class="field-label">Seniority</span>
@@ -84,13 +83,13 @@
       <p id="parse-error" class="error-inline hidden" role="alert"></p>
     </section>
 
-    <section class="gap" aria-labelledby="gap-heading">
+    <section id="section-gap" data-collapsible class="gap hidden" aria-labelledby="gap-heading">
       <div class="pacing-row">
         <h2 id="gap-heading" class="section-title">Skills fit &amp; paced plan</h2>
         <button type="button" id="btn-gap" class="btn btn-ghost" disabled>Analyze</button>
       </div>
       <div id="gap-empty" class="empty-state">
-        Parse a job, upload your resume in ⚙ settings, then analyze to get a learning plan sized to your energy.
+        Compare this job's tech stack to your resume skills and get a paced learning plan.
       </div>
       <div id="gap-content" class="hidden">
         <div class="fit-row">
@@ -114,20 +113,20 @@
       <p id="gap-error" class="error-inline hidden" role="alert"></p>
     </section>
 
-    <section class="star" aria-labelledby="star-heading">
+    <section id="section-star" data-collapsible class="star hidden" aria-labelledby="star-heading">
       <h2 id="star-heading" class="section-title">STAR story matches</h2>
-      <div id="star-empty" class="empty-state">Top matching project stories will show as Situation · Task · Action · Result cards.</div>
+      <div id="star-empty" class="empty-state">None of your project stories match this job.</div>
       <div id="star-content" class="star-list"></div>
       <p id="star-method" class="muted hidden"></p>
     </section>
 
-    <section class="process" aria-labelledby="process-heading">
+    <section id="section-process" data-collapsible class="process hidden" aria-labelledby="process-heading">
       <div class="pacing-row">
         <h2 id="process-heading" class="section-title">Coding interview forecast</h2>
         <button type="button" id="btn-process" class="btn btn-ghost" disabled>Estimate</button>
       </div>
       <div id="process-empty" class="empty-state">
-        Parse a job to estimate its LeetCode likelihood and get role-specific practice questions.
+        Estimate this job's LeetCode likelihood and get role-specific practice questions.
       </div>
       <div id="process-content" class="hidden">
         <div class="process-score-row">
@@ -150,13 +149,13 @@
       <p id="process-error" class="error-inline hidden" role="alert"></p>
     </section>
 
-    <section class="prep" aria-labelledby="prep-heading">
+    <section id="section-prep" data-collapsible class="prep hidden" aria-labelledby="prep-heading">
       <div class="pacing-row">
         <h2 id="prep-heading" class="section-title">Interview prep</h2>
         <button type="button" id="btn-prep" class="btn btn-ghost" disabled>Generate prompts</button>
       </div>
       <div id="prep-empty" class="empty-state">
-        After you parse a job, generate practice prompts tied to your own STAR stories.
+        Generate practice prompts for this job, tied to your matched STAR stories.
       </div>
       <div id="prep-content" class="prep-list hidden"></div>
       <p id="prep-error" class="error-inline hidden" role="alert"></p>
@@ -230,6 +229,34 @@
       </div>
     </div>
 
+    <div
+      id="day-done"
+      class="day-done hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="day-done-title"
+      aria-describedby="day-done-message"
+    >
+      <div class="day-done-inner">
+        <div class="day-done-sun" aria-hidden="true"></div>
+        <p class="day-done-kicker">Day complete</p>
+        <h2 id="day-done-title" class="day-done-title" tabindex="-1">That's a wrap for today</h2>
+        <p id="day-done-message" class="day-done-message">
+          You showed up and did the work. The job search will still be here tomorrow, so go enjoy the rest of your day.
+        </p>
+        <p id="day-done-stats" class="day-done-stats"></p>
+        <ul class="day-done-ideas" aria-label="Ideas for the rest of your day">
+          <li>Step outside</li>
+          <li>Eat something good</li>
+          <li>Call a friend</li>
+          <li>Rest</li>
+        </ul>
+        <p class="day-done-foot">Applications are locked until tomorrow.</p>
+        <button type="button" class="day-done-reset" data-reset-day>Need to send more? Reset today</button>
+        <button type="button" id="btn-day-done-back" class="day-done-back">Back to the panel</button>
+      </div>
+    </div>
+
     <dialog id="settings-dialog" class="dialog">
       <form method="dialog" id="settings-form" class="dialog-body">
         <h2 class="section-title">Settings</h2>
@@ -237,6 +264,13 @@
           Daily application cap
           <input type="number" id="setting-cap" min="1" max="20" value="4" />
         </label>
+        <div class="label reset-day-row">
+          <span>Today's data</span>
+          <span class="muted">
+            Clears today's application count and list, and reopens a wrapped-up day. Takes effect right away.
+          </span>
+          <button type="button" class="btn btn-ghost reset-day-btn" data-reset-day>Reset today</button>
+        </div>
         <div class="label">
           <span>Your skills <span class="muted">(from your resume; used for the skills-gap plan)</span></span>
           <div
