@@ -134,6 +134,7 @@ export function initCareerTools({ getContext }) {
       const result = await analyzeSkillsGap(ctx.parsed, skills, {
         apiKey: ctx.settings.apiKey || '',
         energy,
+        skillProfile: ctx.settings.skillProfile || [],
       });
       renderGap(result, energy);
     } catch (err) {

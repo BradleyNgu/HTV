@@ -487,14 +487,79 @@ section {
   margin: 0;
 }
 
-.skill-chips {
-  max-height: 140px;
+.skill-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 280px;
   overflow-y: auto;
+  font-weight: 400;
 }
 
-.skill-chip {
-  gap: 4px;
-  padding-right: 4px;
+.skill-profile p.muted {
+  margin: 0;
+}
+
+.skill-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skill-group .field-label {
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.skill-row {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.skill-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-name {
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.skill-level {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #eeeeee;
+  color: var(--muted);
+}
+
+.skill-level.level-intermediate {
+  background: var(--li-blue-soft);
+  color: var(--li-blue-hover);
+}
+
+.skill-level.level-advanced,
+.skill-level.level-expert {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.skill-head .chip-remove {
+  margin-left: auto;
+}
+
+.skill-evidence {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .chip-remove {

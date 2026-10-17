@@ -135,7 +135,18 @@ const PLAN_SCHEMA = {
   required: ['missingSkills', 'weeklyPlan'],
 };
 
-function buildPrompt(parsedJob, gap, userSkills, hoursPerWeek) {
+function describeSkills(userSkills, skillProfile) {
+  if (!skillProfile?.length) return userSkills.join(', ') || 'none listed';
+  return skillProfile
+    .slice(0, 30)
+    .map((s) => {
+      const meta = [s.level, s.years ? `${s.years} yrs` : ''].filter(Boolean).join(', ');
+      return `- ${s.name}${meta ? ` (${meta})` : ''}${s.evidence ? `: ${s.evidence}` : ''}`;
+    })
+    .join('\n');
+}
+
+function buildPrompt(parsedJob, gap, userSkills, skillProfile, hoursPerWeek) {
   return `You help a job seeker close skill gaps WITHOUT burning out.
 Return ONLY JSON matching the schema.
 
@@ -143,7 +154,9 @@ Target role seniority: ${parsedJob.seniorityLevel || 'unknown'}
 Domain constraints: ${(parsedJob.domainConstraints || []).join(', ') || 'none listed'}
 Key responsibilities: ${(parsedJob.keyResponsibilities || []).slice(0, 4).join(' | ')}
 
-Skills the person already has: ${userSkills.join(', ') || 'none listed'}
+Skills the person already has (from their resume):
+${describeSkills(userSkills, skillProfile)}
+
 Skills still missing (only use these): ${gap.missing.join(', ')}
 
 Rules:
@@ -156,9 +169,13 @@ Rules:
 /**
  * @param {object} parsedJob
  * @param {string[]} userSkills
- * @param {{ apiKey?: string, energy?: number|null }} opts
+ * @param {{ apiKey?: string, energy?: number|null, skillProfile?: object[] }} opts
  */
-export async function analyzeSkillsGap(parsedJob, userSkills, { apiKey = '', energy = null } = {}) {
+export async function analyzeSkillsGap(
+  parsedJob,
+  userSkills,
+  { apiKey = '', energy = null, skillProfile = [] } = {}
+) {
   const hoursPerWeek = hoursForEnergy(energy);
   const gap = computeGap(parsedJob, userSkills);
   const base = {
@@ -180,7 +197,7 @@ export async function analyzeSkillsGap(parsedJob, userSkills, { apiKey = '', ene
   try {
     const ai = await callGeminiJson({
       apiKey,
-      prompt: buildPrompt(parsedJob, gap, userSkills, hoursPerWeek),
+      prompt: buildPrompt(parsedJob, gap, userSkills, skillProfile, hoursPerWeek),
       schema: PLAN_SCHEMA,
     });
 

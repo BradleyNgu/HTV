@@ -9,6 +9,8 @@ const DEFAULTS = {
   lastResetDate: null,
   apiKey: '',
   userSkills: [],
+  skillProfile: [],
+  resumeName: '',
   checkIns: [],
   projectBank: [
     {
@@ -127,6 +129,29 @@ function cleanSkills(list) {
   return out.slice(0, 60);
 }
 
+const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+
+/** Profile entries: { name, category, level, years, evidence }. Deduped by name. */
+function cleanProfile(list) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    const name = String(raw?.name || '').trim().slice(0, 40);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    const years = Number(raw.years);
+    out.push({
+      name,
+      category: String(raw.category || 'Other').trim().slice(0, 40) || 'Other',
+      level: SKILL_LEVELS.includes(raw.level) ? raw.level : '',
+      years: years > 0 && years < 60 ? Math.round(years * 2) / 2 : null,
+      evidence: String(raw.evidence || '').trim().slice(0, 240),
+    });
+  }
+  return out.slice(0, 60);
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureDailyReset();
   await updateBadge();
@@ -210,13 +235,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             apiKey: state.apiKey || '',
             dailyAppCap: state.dailyAppCap,
             userSkills: state.userSkills || [],
+            skillProfile: state.skillProfile?.length
+              ? state.skillProfile
+              : cleanProfile((state.userSkills || []).map((name) => ({ name }))),
+            resumeName: state.resumeName || '',
           });
           break;
         }
         case 'SAVE_SETTINGS': {
           const payload = {};
           if (message.apiKey != null) payload.apiKey = message.apiKey;
-          if (message.userSkills != null) payload.userSkills = cleanSkills(message.userSkills);
+          if (message.skillProfile != null) {
+            payload.skillProfile = cleanProfile(message.skillProfile);
+            payload.userSkills = payload.skillProfile.map((s) => s.name);
+          } else if (message.userSkills != null) {
+            payload.userSkills = cleanSkills(message.userSkills);
+          }
+          if (message.resumeName != null) payload.resumeName = String(message.resumeName).slice(0, 120);
           if (message.dailyAppCap != null) {
             payload.dailyAppCap = Math.max(1, Number(message.dailyAppCap) || DEFAULTS.dailyAppCap);
           }

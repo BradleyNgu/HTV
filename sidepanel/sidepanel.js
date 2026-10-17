@@ -1,6 +1,6 @@
 import { parseJob } from '../services/aiParser.js';
 import { matchStarStoriesSemantic } from '../services/starMatcher.js';
-import { extractSkillsFromPdf } from '../services/resumeSkills.js';
+import { extractSkillsFromPdf, SKILL_CATEGORIES } from '../services/resumeSkills.js';
 import { initWellbeing } from './wellbeing.js';
 import { initCareerTools } from './careerTools.js';
 
@@ -12,7 +12,7 @@ const els = {
   resumeFile: document.getElementById('resume-file'),
   resumeStatus: document.getElementById('resume-status'),
   resumeError: document.getElementById('resume-error'),
-  skillChips: document.getElementById('skill-chips'),
+  skillProfile: document.getElementById('skill-profile'),
   pacingBadge: document.getElementById('pacing-badge'),
   pacingFill: document.getElementById('pacing-fill'),
   pacingMeter: document.getElementById('pacing-meter'),
@@ -48,9 +48,9 @@ const els = {
 let currentJob = null;
 let currentParsed = null;
 let currentMatches = [];
-let settings = { apiKey: '', dailyAppCap: 4, userSkills: [] };
-// Skills shown in the open settings dialog; only persisted on Save.
-let draftSkills = [];
+let settings = { apiKey: '', dailyAppCap: 4, userSkills: [], skillProfile: [], resumeName: '' };
+// Skill profile shown in the open settings dialog; removals persist on Save.
+let draftProfile = [];
 
 const careerTools = initCareerTools({
   getContext: () => ({ parsed: currentParsed, matches: currentMatches, settings }),
@@ -331,38 +331,90 @@ async function loadSettings() {
     apiKey: res.apiKey || '',
     dailyAppCap: res.dailyAppCap ?? 4,
     userSkills: res.userSkills || [],
+    skillProfile: res.skillProfile || [],
+    resumeName: res.resumeName || '',
   };
   els.settingCap.value = settings.dailyAppCap;
   els.settingKey.value = settings.apiKey;
-  draftSkills = [...settings.userSkills];
-  renderSkillChips();
+  draftProfile = settings.skillProfile.map((s) => ({ ...s }));
+  renderSkillProfile();
 }
 
-function renderSkillChips() {
-  els.skillChips.innerHTML = '';
-  if (!draftSkills.length) {
-    const empty = document.createElement('span');
+function renderSkillProfile() {
+  els.skillProfile.innerHTML = '';
+  if (!draftProfile.length) {
+    const empty = document.createElement('p');
     empty.className = 'muted';
     empty.textContent = 'No skills yet — drop a resume above.';
-    els.skillChips.appendChild(empty);
+    els.skillProfile.appendChild(empty);
     return;
   }
-  draftSkills.forEach((skill, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'badge skill-chip';
-    chip.textContent = skill;
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'chip-remove';
-    remove.textContent = '×';
-    remove.setAttribute('aria-label', `Remove ${skill}`);
-    remove.addEventListener('click', () => {
-      draftSkills.splice(i, 1);
-      renderSkillChips();
-    });
-    chip.appendChild(remove);
-    els.skillChips.appendChild(chip);
+
+  if (settings.resumeName) {
+    const from = document.createElement('p');
+    from.className = 'muted skill-from';
+    from.textContent = `${draftProfile.length} skills from ${settings.resumeName}`;
+    els.skillProfile.appendChild(from);
+  }
+
+  const groups = new Map(SKILL_CATEGORIES.map((c) => [c, []]));
+  draftProfile.forEach((skill) => {
+    const key = groups.has(skill.category) ? skill.category : 'Other';
+    groups.get(key).push(skill);
   });
+
+  for (const [category, skills] of groups) {
+    if (!skills.length) continue;
+    const group = document.createElement('div');
+    group.className = 'skill-group';
+    const title = document.createElement('span');
+    title.className = 'field-label';
+    title.textContent = category;
+    group.appendChild(title);
+
+    skills.forEach((skill) => {
+      const row = document.createElement('div');
+      row.className = 'skill-row';
+
+      const head = document.createElement('div');
+      head.className = 'skill-head';
+      const name = document.createElement('span');
+      name.className = 'skill-name';
+      name.textContent = skill.name;
+      head.appendChild(name);
+
+      const meta = [skill.level, skill.years ? `${skill.years} yr${skill.years === 1 ? '' : 's'}` : '']
+        .filter(Boolean)
+        .join(' · ');
+      if (meta) {
+        const level = document.createElement('span');
+        level.className = `skill-level level-${(skill.level || 'none').toLowerCase()}`;
+        level.textContent = meta;
+        head.appendChild(level);
+      }
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'chip-remove';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove ${skill.name}`);
+      remove.addEventListener('click', () => {
+        draftProfile = draftProfile.filter((s) => s !== skill);
+        renderSkillProfile();
+      });
+      head.appendChild(remove);
+      row.appendChild(head);
+
+      if (skill.evidence) {
+        const evidence = document.createElement('p');
+        evidence.className = 'skill-evidence';
+        evidence.textContent = skill.evidence;
+        row.appendChild(evidence);
+      }
+      group.appendChild(row);
+    });
+    els.skillProfile.appendChild(group);
+  }
 }
 
 function setResumeStatus(message) {
@@ -370,29 +422,45 @@ function setResumeStatus(message) {
   els.resumeStatus.classList.toggle('hidden', !message);
 }
 
+/** A new resume fully replaces the old skills and is saved immediately. */
 async function handleResumeFile(file) {
   if (!file) return;
   showError(els.resumeError, '');
   setResumeStatus('');
+  const previous = draftProfile;
+  draftProfile = [];
+  renderSkillProfile();
   els.resumeDrop.classList.add('busy');
   els.resumeDropText.textContent = `Reading ${file.name}…`;
   try {
-    const { skills, source, error } = await extractSkillsFromPdf(file, {
+    const { profile, source, error } = await extractSkillsFromPdf(file, {
       apiKey: els.settingKey.value,
     });
-    if (!skills.length) {
+    if (!profile.length) {
       throw new Error('No recognizable skills found in that PDF.');
     }
-    draftSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
-    renderSkillChips();
+
+    await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', skillProfile: profile, resumeName: file.name });
+    const saved = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+    settings = {
+      ...settings,
+      userSkills: saved.userSkills || [],
+      skillProfile: saved.skillProfile || [],
+      resumeName: saved.resumeName || '',
+    };
+    draftProfile = settings.skillProfile.map((s) => ({ ...s }));
+    renderSkillProfile();
+
     const via = {
-      gemini: 'via Gemini',
-      catalog: 'via offline keyword match — add a Gemini key for better results',
-      'catalog-fallback': `via offline keyword match (Gemini failed: ${error})`,
+      gemini: 'Described by Gemini',
+      catalog: 'Found by offline keyword match — add a Gemini key for proficiency levels and richer descriptions',
+      'catalog-fallback': `Found by offline keyword match (Gemini failed: ${error})`,
     }[source];
-    setResumeStatus(`Found ${draftSkills.length} skills in ${file.name} ${via}. Remove any that don't fit, then Save.`);
+    setResumeStatus(`Replaced your previous skills. ${via}.`);
   } catch (err) {
-    showError(els.resumeError, err?.message || 'Could not read that PDF.');
+    draftProfile = previous;
+    renderSkillProfile();
+    showError(els.resumeError, `${err?.message || 'Could not read that PDF.'} Your previous skills were kept.`);
   } finally {
     els.resumeDrop.classList.remove('busy');
     els.resumeDropText.textContent = 'Drop your resume PDF here';
@@ -452,7 +520,7 @@ els.settingsForm.addEventListener('submit', async (e) => {
   settings = {
     dailyAppCap: Number(els.settingCap.value) || 4,
     apiKey: els.settingKey.value.trim(),
-    userSkills: draftSkills,
+    skillProfile: draftProfile,
   };
   await chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', ...settings });
   els.settingsDialog.close();
