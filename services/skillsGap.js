@@ -4,7 +4,7 @@
  * The gap itself (what the job needs vs. what you have) is computed
  * deterministically so it is explainable and never hallucinated.
  * Gemini is only used to prioritise the gaps and write a realistic plan
- * sized to the learner's energy — output is structured JSON, not chat.
+ * sized to the learner's energy; output is structured JSON, not chat.
  */
 
 import { callGeminiJson } from './gemini.js';

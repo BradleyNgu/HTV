@@ -91,7 +91,7 @@ function offlineEstimate(job, parsedJob) {
   const role = job?.title || 'this role';
   return {
     leetcodeLikelihoodPercent: likelihood,
-    rationale: `${role} interviews at ${company} may include timed data-structure or algorithm questions. This estimate is based on the role, seniority, technical stack, and typical software interview patterns—not a confirmed company interview plan.`,
+    rationale: `${role} interviews at ${company} may include timed data-structure or algorithm questions. This estimate is based on the role, seniority, technical stack, and typical software interview patterns, not a confirmed company interview plan.`,
     processNotes:
       'Prepare for a practical technical screen as well: code discussion, debugging, system or domain design, and questions about past projects may matter as much as algorithms.',
     recommendedProblemIds: selected,

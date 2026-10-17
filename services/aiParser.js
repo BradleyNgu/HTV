@@ -1,5 +1,5 @@
 /**
- * Structured JSON job parser — no conversational chat UI.
+ * Structured JSON job parser with no conversational chat UI.
  * Uses Gemini with schema-enforced JSON responses.
  */
 

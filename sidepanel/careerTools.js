@@ -1,6 +1,6 @@
 /**
  * Skills-gap plan + interview prep panels. All output renders into fixed
- * UI components (badges, cards, checklists) — there is no chat surface.
+ * UI components (badges, cards, checklists); there is no chat surface.
  */
 
 import { analyzeSkillsGap } from '../services/skillsGap.js';

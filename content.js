@@ -1,7 +1,7 @@
 /**
  * LinkedIn Jobs DOM scraper + apply-button pacing overlay.
  * Supports /jobs/search/* (split pane) and /jobs/view/* (standalone).
- * Does not require clicking "Show more" — uses textContent + meta/JSON-LD.
+ * Does not require clicking "Show more"; uses textContent + meta/JSON-LD.
  */
 
 (function () {
@@ -528,7 +528,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Apply / submit detection — drives automatic pacing
+  // Apply / submit detection drives automatic pacing
   // ---------------------------------------------------------------------------
 
   function controlLabel(el) {
@@ -539,7 +539,7 @@
     return (el?.innerText || el?.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
-  /** The "Apply" / "Easy Apply" button on a job — not "Applied", "Apply filters", etc. */
+  /** The "Apply" / "Easy Apply" button on a job, not "Applied", "Apply filters", etc. */
   function isApplyControl(el) {
     if (!el || el.closest?.('#sjsc-toast')) return false;
     const text = controlText(el);
@@ -624,7 +624,7 @@
           : `Counted toward today\u2019s pace: ${res.appsSubmittedToday} of ${res.dailyAppCap}.`
       );
     } catch {
-      /* extension reloaded mid-click — nothing to record */
+      /* extension reloaded mid-click; nothing to record */
     }
   }
 
@@ -678,7 +678,7 @@
           'title',
           state?.shutdownLocked
             ? 'Daily cap reached! Protect your energy for tomorrow.'
-            : 'Daily application cap reached — paced by Job Search Copilot'
+            : 'Daily application cap reached, paced by Job Search Copilot'
         );
       } else {
         btn.classList.remove('sjsc-apply-disabled');
@@ -733,7 +733,7 @@
         showToast(pacingMessage(res));
       } else {
         showToast(
-          `Pacing refreshed: ${res.appsSubmittedToday} of ${res.dailyAppCap} used. Apply is available — click again.`
+          `Pacing refreshed: ${res.appsSubmittedToday} of ${res.dailyAppCap} used. Apply is available; click again.`
         );
       }
     } catch {

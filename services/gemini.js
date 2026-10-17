@@ -4,7 +4,7 @@
  * The API key is sent in a header (not the URL) so it never lands in logs.
  */
 
-// Model IDs are retired periodically — update here if the API returns a 404.
+// Model IDs are retired periodically; update here if the API returns a 404.
 export const GEMINI_MODEL = 'gemini-3.8-flash';
 export const GEMINI_EMBED_MODEL = 'gemini-embedding-001';
 

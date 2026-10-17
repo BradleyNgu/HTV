@@ -149,7 +149,7 @@ async function getActiveLinkedInTab() {
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (active?.id && isLinkedInJobsUrl(active.url)) return active;
 
-  // Side panel focus can leave another tab "active" — fall back to any Jobs tab
+  // Side panel focus can leave another tab "active", so fall back to any Jobs tab
   const jobsTabs = await chrome.tabs.query({
     url: ['https://www.linkedin.com/jobs/*', 'https://www.linkedin.com/jobs/view/*'],
   });
@@ -250,8 +250,8 @@ function renderParsed(parsed) {
 
   const sourceLabel = {
     gemini: 'Parsed via Gemini',
-    heuristic: 'Parsed offline (heuristic — add a Gemini API key in settings for richer results)',
-    'heuristic-fallback': 'API failed — showing heuristic fallback',
+    heuristic: 'Parsed offline (heuristic; add a Gemini API key in settings for richer results)',
+    'heuristic-fallback': 'API failed; showing heuristic fallback',
   };
   els.parseSource.textContent = sourceLabel[parsed._source] || 'Parsed';
   if (parsed._error) {
@@ -762,7 +762,7 @@ function renderSkillProfile() {
   if (!draftProfile.length) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'No skills yet — drop a resume above.';
+    empty.textContent = 'No skills yet. Drop a resume above.';
     els.skillProfile.appendChild(empty);
     return;
   }
@@ -892,7 +892,7 @@ async function handleResumeFile(file) {
 
     const via = {
       gemini: 'Described by Gemini',
-      catalog: 'Found by offline keyword match — add a Gemini key for proficiency levels and richer descriptions',
+      catalog: 'Found by offline keyword match. Add a Gemini key for proficiency levels and richer descriptions',
       'catalog-fallback': `Found by offline keyword match (Gemini failed: ${error})`,
     }[source];
     setResumeStatus(`Replaced your previous skills. ${via}.`);

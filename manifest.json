@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sustainable Job Search Copilot",
   "version": "6.7",
-  "description": "Pace LinkedIn applications, parse job requirements into structured insights, and match STAR stories—without a chatbot.",
+  "description": "Pace LinkedIn applications, parse job requirements into structured insights, and match STAR stories without a chatbot.",
   "permissions": [
     "sidePanel",
     "activeTab",

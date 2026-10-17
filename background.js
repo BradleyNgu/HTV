@@ -34,7 +34,7 @@ const DEFAULTS = {
     },
     {
       id: 'proj-sysdesign',
-      title: 'System Design Optimization — Hot Path Cache',
+      title: 'System Design Optimization: Hot Path Cache',
       tags: ['microservices', 'redis', 'nodejs', 'scalability', 'api', 'caching'],
       situation: 'A core read API was timing out under peak load during product launches.',
       task: 'Stabilize the hot path without a full rewrite of downstream services.',
@@ -224,7 +224,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
         case 'RECORD_APPLICATION': {
           // Sent by the content script when the user applies on LinkedIn.
-          // Always counted (even past the cap — it really happened), but each
+          // Always counted (even past the cap, since it really happened), but each
           // job is only ever counted once.
           const jobKey = String(message.jobKey || '').slice(0, 100);
           if (!jobKey) {

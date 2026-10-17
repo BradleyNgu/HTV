@@ -163,7 +163,7 @@ function aliasRegex(alias) {
     : new RegExp(`(?<![\\w.+#])${core}(?![\\w+#])`, 'i');
 }
 
-/** Bare skill lists ("Python, Go, SQL") — useful for detection, useless as evidence. */
+/** Bare skill lists ("Python, Go, SQL") are useful for detection but useless as evidence. */
 function isListLine(line) {
   const parts = line.split(/[,|•·]/);
   return parts.length >= 4 && line.split(/\s+/).length / parts.length < 2.5;

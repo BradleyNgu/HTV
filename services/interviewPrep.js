@@ -1,6 +1,6 @@
 /**
  * Interview prep: turns the parsed job + matched STAR stories into practice
- * prompts, each tied to a story you already have. Structured output only — no chat.
+ * prompts, each tied to a story you already have. Structured output only, no chat.
  */
 
 import { callGeminiJson } from './gemini.js';
