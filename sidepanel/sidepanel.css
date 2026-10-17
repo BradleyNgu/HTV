@@ -455,12 +455,91 @@ section {
 }
 
 .dropzone.busy {
-  opacity: 0.7;
+  border-style: solid;
+  border-color: var(--li-blue);
+  background: var(--li-blue-soft);
+  cursor: progress;
   pointer-events: none;
 }
 
 .dropzone-icon {
   font-size: 20px;
+}
+
+.dropzone-spinner {
+  display: none;
+  width: 22px;
+  height: 22px;
+  margin: 2px 0;
+  border: 2.5px solid rgba(10, 102, 194, 0.2);
+  border-top-color: var(--li-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.dropzone.busy .dropzone-icon,
+.dropzone.busy .dropzone-hint {
+  display: none;
+}
+
+.dropzone.busy .dropzone-spinner {
+  display: block;
+}
+
+.dropzone.busy .dropzone-text {
+  color: var(--li-blue-hover);
+}
+
+.skill-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-line {
+  display: block;
+  height: 10px;
+  width: 45%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ececec 0%, #f7f7f7 50%, #ececec 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-line.short {
+  width: 80%;
+  height: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone-spinner {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+
+  .skeleton-line {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
 }
 
 .dropzone-text {

@@ -230,6 +230,7 @@
             aria-describedby="resume-drop-hint"
           >
             <span class="dropzone-icon" aria-hidden="true">📄</span>
+            <span class="dropzone-spinner" aria-hidden="true"></span>
             <span id="resume-drop-text" class="dropzone-text">Drop your resume PDF here</span>
             <span id="resume-drop-hint" class="dropzone-hint">or click to browse · text is read on this device</span>
           </div>
@@ -243,7 +244,7 @@
           <input type="password" id="setting-key" placeholder="Gemini API key" autocomplete="off" />
         </label>
         <div class="dialog-actions">
-          <button type="submit" class="btn btn-primary" value="save">Save</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-settings" value="save">Save</button>
           <button type="button" class="btn btn-ghost" id="btn-close-settings">Cancel</button>
         </div>
       </form>
