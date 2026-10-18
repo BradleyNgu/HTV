@@ -17,6 +17,7 @@
     // when Gmail's inbox preview does not expose the rejection wording.
     /\b(?:job\s+)?application\s+(?:status\s+)?update\b/i,
     /\b(?:will|would|can|could)\s+not\s+(?:be\s+)?moving\s+forward\b/i,
+    /\bwhile\s+we\s+(?:will|would|can|could)\s+not\s+(?:be\s+)?moving\s+forward\b/i,
     /\bnot\s+moving\s+forward\s+with\s+(?:your|the)\s+application\b/i,
     /\bdecided\s+not\s+to\s+(?:move|proceed|continue)\b/i,
     /\b(?:we|i)\s+(?:have\s+)?chosen\s+to\s+(?:move|proceed|continue)\s+with\s+other\s+candidates\b/i,
@@ -40,6 +41,13 @@
     /\bunable\s+to\s+(?:offer|advance|proceed|move\s+forward)\b/i,
     /\bafter\s+careful\s+(?:consideration|review)\b.{0,180}\b(?:not|other candidates)\b/i,
     /\bthank\s+you\s+for\s+(?:your\s+)?(?:interest|applying)\b.{0,220}\bnot\s+(?:be\s+)?moving\s+forward\b/i,
+    // Soft corporate rejects (e.g. BMO) lead with volume/competitive language;
+    // Gmail's short inbox snippet often truncates before "not moving forward".
+    /\breceived\s+a\s+(?:high|large|significant)\s+volume\s+of\s+applications\b/i,
+    /\b(?:high|large|significant)\s+volume\s+of\s+applications\b.{0,120}\b(?:very\s+)?competitive\b/i,
+    /\bmaking\s+this\s+(?:process|role|position)\s+(?:very\s+)?competitive\b/i,
+    /\bthank\s+you\s+for\s+(?:your\s+)?interest\b.{0,280}\b(?:high|large|significant)\s+volume\s+of\s+applications\b/i,
+    /\bencourage\s+you\s+to\s+stay\s+connected\b.{0,80}\b(?:new\s+)?job\s+opportunities\b/i,
   ];
 
   function normalize(value) {

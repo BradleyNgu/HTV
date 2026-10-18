@@ -119,6 +119,16 @@ const unrelatedUnfortunately = makeRow(
   'Travel insurance claim',
   'While falling ill is never part of the plan, it can unfortunately happen.'
 );
+// BMO-style: rejection buried after a long preamble; Gmail snippet often
+// truncates before "will not be moving forward".
+const bmoTruncatedSnippet = makeRow(
+  'BMO Financial Group - Data Analytics Intern, Winter 2027 (Co-op/Internship) - 8 months - R260024336',
+  'Thank you for your interest in BMO. We received a high volume of applications for Data Analytics Intern, Winter 2027 (Co-op/Internship) - 8 months , R260024336 , making this process very competitive.'
+);
+const bmoFullBody = makeRow(
+  'BMO Financial Group - Data Analytics Intern, Winter 2027 (Co-op/Internship) - 8 months - R260024336',
+  'Hello Bradley , Thank you for your interest in BMO. We received a high volume of applications for Data Analytics Intern, Winter 2027 (Co-op/Internship) - 8 months , R260024336 , making this process very competitive. While we will not be moving forward with your application, we encourage you to stay connected with us. Here are some ways to make sure you’re the first to know about new job opportunities at BMO:'
+);
 const rows = [
   rejection,
   interview,
@@ -132,6 +142,8 @@ const rows = [
   movingAhead,
   positionClosed,
   unrelatedUnfortunately,
+  bmoTruncatedSnippet,
+  bmoFullBody,
 ];
 const document = {
   documentElement: new FakeElement(),
@@ -172,6 +184,11 @@ assert.equal(
   unrelatedUnfortunately.classList.contains('sjsc-rejection-email-hidden'),
   false
 );
+assert.equal(
+  bmoTruncatedSnippet.classList.contains('sjsc-rejection-email-hidden'),
+  true
+);
+assert.equal(bmoFullBody.classList.contains('sjsc-rejection-email-hidden'), true);
 
 const cover = rejection.querySelector('.sjsc-rejection-email-cover');
 assert.ok(cover);
