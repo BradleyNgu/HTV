@@ -44,7 +44,7 @@ tr.sjsc-rejection-email-hidden > td > *:not(.sjsc-rejection-email-cover) {
   border-radius: 999px;
   padding: 5px 10px;
   background: #fff;
-  color: #0b57d0;
+  color: rgb(30, 136, 229);
   cursor: pointer;
   font: 600 12px/1.2 Arial, sans-serif;
 }
@@ -54,7 +54,7 @@ tr.sjsc-rejection-email-hidden > td > *:not(.sjsc-rejection-email-cover) {
 }
 
 .sjsc-rejection-email-show:focus-visible {
-  outline: 2px solid #0b57d0;
+  outline: 2px solid rgb(30, 136, 229);
   outline-offset: 2px;
 }
 

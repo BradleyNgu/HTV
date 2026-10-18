@@ -147,7 +147,7 @@ async function updateBadge() {
 
   await chrome.action.setBadgeText({ text: String(remaining) });
   await chrome.action.setBadgeBackgroundColor({
-    color: atCap ? '#B24020' : '#0A66C2',
+    color: atCap ? '#B24020' : 'rgb(30, 136, 229)',
   });
 }
 

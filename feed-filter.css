@@ -42,10 +42,10 @@
 .sjsc-career-show {
   flex-shrink: 0;
   padding: 6px 12px;
-  border: 1px solid #0a66c2;
+  border: 1px solid rgb(30, 136, 229);
   border-radius: 999px;
   background: #ffffff;
-  color: #0a66c2;
+  color: rgb(30, 136, 229);
   font: inherit;
   font-size: 12px;
   font-weight: 650;
@@ -55,6 +55,6 @@
 .sjsc-career-show:hover,
 .sjsc-career-show:focus-visible {
   background: #e8f0fe;
-  outline: 2px solid #0a66c2;
+  outline: 2px solid rgb(30, 136, 229);
   outline-offset: 2px;
 }
