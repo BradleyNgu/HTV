@@ -65,6 +65,8 @@ const els = {
   respList: document.getElementById('resp-list'),
   parseSource: document.getElementById('parse-source'),
   parseError: document.getElementById('parse-error'),
+  btnMascot: document.getElementById('btn-mascot'),
+  mascotBubble: document.getElementById('mascot-bubble'),
   btnSettings: document.getElementById('btn-settings'),
   settingsDialog: document.getElementById('settings-dialog'),
   settingsForm: document.getElementById('settings-form'),
@@ -1046,6 +1048,40 @@ els.btnCompleteShutdown.addEventListener('click', completeShutdown);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !els.shutdownOverlay.classList.contains('hidden')) {
     closeShutdownOverlay();
+  }
+});
+
+// Check-san's click lines. Add or edit strings here; one is picked at random.
+const MASCOT_LINES = [
+  'Pace yourself. The listings will still be there tomorrow.',
+  'One thoughtful application beats ten rushed ones.',
+  'Water. Stretch. Then the next posting.',
+  'Cap reached is not failure. It is a boundary.',
+  'You already showed up. That counts.',
+];
+
+function hideMascotBubble() {
+  els.mascotBubble.classList.add('hidden');
+  els.mascotBubble.textContent = '';
+}
+
+function speakMascotLine() {
+  const lines = MASCOT_LINES.filter(Boolean);
+  if (!lines.length) return;
+  const current = els.mascotBubble.textContent;
+  const pool = lines.length > 1 ? lines.filter((line) => line !== current) : lines;
+  els.mascotBubble.textContent = pool[Math.floor(Math.random() * pool.length)];
+  els.mascotBubble.classList.remove('hidden');
+}
+
+els.btnMascot.addEventListener('click', (e) => {
+  e.stopPropagation();
+  speakMascotLine();
+});
+
+document.addEventListener('click', (e) => {
+  if (!els.btnMascot.contains(e.target) && !els.mascotBubble.contains(e.target)) {
+    hideMascotBubble();
   }
 });
 
