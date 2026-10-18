@@ -1053,11 +1053,12 @@ document.addEventListener('keydown', (e) => {
 
 // Check-san's click lines. Add or edit strings here; one is picked at random.
 const MASCOT_LINES = [
-  'Pace yourself. The listings will still be there tomorrow.',
-  'One thoughtful application beats ten rushed ones.',
-  'Water. Stretch. Then the next posting.',
-  'Cap reached is not failure. It is a boundary.',
-  'You already showed up. That counts.',
+  'Never accept the world as it appears to be, dare to see it for what it could be.',
+  'Good job, keep on going!'
+  `I\'m Check-San, I\'ll be here for you.`,
+  'Stay hungry, stay foolish.',
+`You've gotten through 100% of your worst days.`,
+`I'm hungry.`
 ];
 
 function hideMascotBubble() {
