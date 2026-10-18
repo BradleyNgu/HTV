@@ -110,6 +110,7 @@ body {
   font-size: 12px;
   font-weight: 650;
   line-height: 1.35;
+  white-space: pre-line;
   text-align: left;
   box-shadow: 2px 3px 0 rgba(25, 25, 25, 0.12);
   animation: mascot-bubble-in 0.16s ease;
