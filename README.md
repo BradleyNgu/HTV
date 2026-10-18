@@ -1,5 +1,30 @@
 # Checkpoint
 
+## Inspiration
+Mental health is an extremely important, yet overlooked area of many lives. One thing that almost everyone goes through, the job hunt, can feel very overwhelming at times. Once you're off the clock and want to search for other positions, it can be hard to turn off work mode in your brain afterwards. Let's be real, sending applications knowing that there's a high chance that you'll get a rejection email back, it's not easy to stay motivated. Eventually, you start looking at how others are doing, and then see that one guy you hate get an internship at your dream company. Uncalled for. So, you realize it's important to continue the search, but in a way where you don't become your greatest enemy...
+
+## What it does
+Checkpoint is a browser extension designed to help you on the job/internship search process, and more importantly, keep yourself happy. 
+
+When opening the dashboard, you can set a set number of positions to apply to for that day. You import your resume, and Checkpoint will parse your resume to see what skills you have related to each position. Additionally, when you apply, it'll tell you what you should practice/study, such as Leetcode questions, or general topics to learn. 
+
+Once the daily goal of applications are reached, you need to take your mind off of the job search. Checkpoint will tell you that you've completed your goals for today, and will block off any further applications until the next day. 
+
+However, we know that it's hard to leave Linkedin once you're on it, and seeing other people get positions while you're still searching can be very mentally taxing. So, Checkpoint will block detected posts about other's incoming positions, so you can focus on what really matters, yourself and your goals.
+
+Nobody is perfect, and we're all bound to get a rejection email at some point in our lives. Checkpoint will also handle that for you, and block out those rejection emails that fill up the inbox. Nothing is worse than wanting to check your email and then getting hit with a reminder that you were rejected by a bunch of companies.
+
+Checkpoint aims to be a checkpoint, a safe pitstop on someone's story as they continue to work towards their goals.
+
+## How we built it
+HTML, CSS, JavaScript, and #Love.
+
+## Challenges we ran into
+The blocking of the application button wouldn't work properly sometimes and it keep flashing. Taunting us in our time of despair. 
+
+## Accomplishments that we're proud of
+Somehow having an anime girl mascot, Check-san, be part of the finished product.
+
 Chrome Manifest V3 side-panel extension for LinkedIn Jobs. Enforces daily application pacing, parses job descriptions into structured JSON signals, and prepares interview prompts from your resume without a chatbot UI.
 
 ## Load in Chrome
