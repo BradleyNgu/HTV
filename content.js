@@ -547,6 +547,8 @@
     if (/\bapplied\b/i.test(text) || /\bapplied\b/i.test(label)) return false;
     if (/^(easy )?apply( now)?$/i.test(text)) return true;
     if (/^(easy apply|apply on company website|apply to\b)/i.test(label)) return true;
+    const looksLikeApply = /apply/i.test(`${text} ${label}`);
+    if (!looksLikeApply) return false;
     return APPLY_CLASS_SELECTORS.some((sel) => {
       try {
         return el.matches(sel);
@@ -661,9 +663,25 @@
     }, 500);
   }
 
+  function isPacingBlocked(state) {
+    return Boolean(state?.atCap || state?.shutdownLocked);
+  }
+
+  let applyPaintTimer = null;
+  let applyPaintQueued = null;
+
   function setApplyDisabled(disabled, state = null) {
-    pacingAtCap = disabled;
     if (state) lastPacingState = state;
+    applyPaintQueued = Boolean(disabled);
+    if (applyPaintTimer) return;
+    applyPaintTimer = setTimeout(() => {
+      applyPaintTimer = null;
+      paintApplyButtons(applyPaintQueued, lastPacingState);
+    }, 80);
+  }
+
+  function paintApplyButtons(disabled, state = lastPacingState) {
+    pacingAtCap = Boolean(disabled);
     const buttons = findApplyControls();
 
     buttons.forEach((btn) => {
@@ -785,16 +803,20 @@
       return false;
     }
     if (message?.type === 'PACING_UPDATED') {
-      // Apply the panel's update immediately, then reconcile with storage in
-      // case another application update raced this message.
-      const immediateState = {
+      // Do not keep a stale shutdown lock when the panel explicitly says
+      // applications are still available. Merging old state caused the Apply
+      // button to grey out and then flicker back open.
+      const nextState = {
         ...(lastPacingState || {}),
+        appsSubmittedToday: message.appsSubmittedToday ?? lastPacingState?.appsSubmittedToday,
+        dailyAppCap: message.dailyAppCap ?? lastPacingState?.dailyAppCap,
         atCap: Boolean(message.atCap),
+        shutdownLocked:
+          message.shutdownLocked != null
+            ? Boolean(message.shutdownLocked)
+            : Boolean(message.atCap) && Boolean(lastPacingState?.shutdownLocked),
       };
-      setApplyDisabled(
-        Boolean(immediateState.atCap || immediateState.shutdownLocked),
-        immediateState
-      );
+      setApplyDisabled(isPacingBlocked(nextState), nextState);
       syncPacing();
       sendResponse({ ok: true });
       return false;
@@ -826,10 +848,10 @@
   let relockTimer = null;
   if (document.body) {
     new MutationObserver(() => {
-      if (!pacingAtCap || relockTimer) return;
+      if (!isPacingBlocked(lastPacingState) || relockTimer) return;
       relockTimer = setTimeout(() => {
         relockTimer = null;
-        if (pacingAtCap) setApplyDisabled(true);
+        if (isPacingBlocked(lastPacingState)) paintApplyButtons(true, lastPacingState);
       }, 300);
     }).observe(document.body, { childList: true, subtree: true });
   }

@@ -140,7 +140,7 @@ async function refreshPacing() {
   const res = await chrome.runtime.sendMessage({ type: 'GET_PACING_STATE' });
   if (res?.ok) {
     updatePacingUI(res);
-    await notifyContentScript(res.atCap);
+    await notifyContentScript(res);
   }
 }
 
@@ -330,10 +330,16 @@ async function runParseAndMatch() {
 }
 
 /** Tell the LinkedIn tab the cap changed so Easy Apply locks/unlocks right away. */
-async function notifyContentScript(atCap) {
+async function notifyContentScript(pacing = {}) {
   const tab = await getActiveLinkedInTab();
   if (tab?.id) {
-    chrome.tabs.sendMessage(tab.id, { type: 'PACING_UPDATED', atCap }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'PACING_UPDATED',
+      atCap: Boolean(pacing.atCap),
+      shutdownLocked: Boolean(pacing.shutdownLocked),
+      appsSubmittedToday: pacing.appsSubmittedToday,
+      dailyAppCap: pacing.dailyAppCap,
+    }).catch(() => {});
   }
 }
 
@@ -383,7 +389,7 @@ async function renderApplications() {
       });
       if (result?.ok) {
         updatePacingUI(result);
-        await notifyContentScript(result.atCap);
+        await notifyContentScript(result);
       }
     });
 
@@ -401,7 +407,7 @@ async function addManualApplication() {
   });
   if (result?.ok) {
     updatePacingUI(result);
-    await notifyContentScript(result.atCap);
+    await notifyContentScript(result);
   }
 }
 
@@ -758,7 +764,7 @@ async function resetDay() {
   const fromDayDone = !els.dayDone.classList.contains('hidden');
   hideDayDone();
   updatePacingUI(res);
-  await notifyContentScript(res.atCap);
+  await notifyContentScript(res);
   await renderApplications();
   if (fromDayDone) els.btnWrapUp.focus();
 }
