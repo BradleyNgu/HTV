@@ -40,25 +40,32 @@ body {
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 2px 12px;
+  padding: 4px 2px 0;
 }
 
 .brand {
   display: flex;
   gap: 12px;
   align-items: center;
+  padding-bottom: 10px;
 }
 
-.brand-mark {
-  width: 64px;
-  height: 64px;
-  border-radius: 0;
-  object-fit: contain;
+.header-aside {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.header-mascot {
+  width: auto;
+  height: 92px;
+  margin-bottom: -6px;
   background: transparent;
-  flex-shrink: 0;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .brand-name {
