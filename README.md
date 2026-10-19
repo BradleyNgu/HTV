@@ -1,6 +1,6 @@
 # Checkpoint
 
-[![Demo video](https://img.youtube.com/vi/uncoChSK1bU/maxresdefault.jpg)](https://youtu.be/uncoChSK1bU)
+[![Demo video](icons/demo.jpg)](https://youtu.be/uncoChSK1bU)
 
 ## Inspiration
 Mental health is an extremely important, yet overlooked area of many lives. One thing that almost everyone goes through, the job hunt, can feel very overwhelming at times. Once you're off the clock and want to search for other positions, it can be hard to turn off work mode in your brain afterwards. Let's be real, sending applications knowing that there's a high chance that you'll get a rejection email back, it's not easy to stay motivated. Eventually, you start looking at how others are doing, and then see that one guy you hate get an internship at your dream company. Uncalled for. So, you realize it's important to continue the search, but in a way where you don't become your greatest enemy...
